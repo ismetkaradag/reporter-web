@@ -6,6 +6,7 @@ import { formatCurrency, formatNumber } from '@/utils/formatUtils';
 import { formatDateTime } from '@/utils/dateUtils';
 import { calculateNetRevenue } from '@/utils/orderUtils';
 import { getAllCampuses } from '@/utils/campusUtils';
+import * as XLSX from 'xlsx';
 
 interface OrdersClientProps {
   orders: Order[];
@@ -20,6 +21,50 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
   const [selectedStatus, setSelectedStatus] = useState('all');
 
   const campuses = useMemo(() => getAllCampuses(), []);
+
+  // Excel export fonksiyonu
+  const exportToExcel = () => {
+    const excelData = filteredOrders.map((order) => ({
+      'Sipariş Numarası': order.custom_order_number,
+      'Sipariş Durumu': order.order_status,
+      'Ödeme Durumu': order.payment_status,
+      'Kargo Durumu': order.shipping_status || '-',
+      'E-Fatura Durumu': order.erp_status || '-',
+      'Kargo Firması': order.shipping_method_name || '-',
+      'Ödeme Tipi': order.payment_method || '-',
+      'Kampüs': order.campus || '-',
+      'Sınıf': order.class || '-',
+      'Kimlik No': order.identity_number || '-',
+      'Kullanıcı': order.customer_info || '-',
+      'Sipariş Tarihi': formatDateTime(order.created_on),
+      'Toplam': calculateNetRevenue(order),
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Kolon genişlikleri
+    ws['!cols'] = [
+      { wch: 20 }, // Sipariş Numarası
+      { wch: 20 }, // Sipariş Durumu
+      { wch: 20 }, // Ödeme Durumu
+      { wch: 15 }, // Kargo Durumu
+      { wch: 15 }, // E-Fatura Durumu
+      { wch: 15 }, // Kargo Firması
+      { wch: 20 }, // Ödeme Tipi
+      { wch: 25 }, // Kampüs
+      { wch: 15 }, // Sınıf
+      { wch: 15 }, // Kimlik No
+      { wch: 30 }, // Kullanıcı
+      { wch: 20 }, // Sipariş Tarihi
+      { wch: 15 }, // Toplam
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Siparişler');
+
+    const fileName = `siparisler_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
 
   // Filtreleme
   const filteredOrders = useMemo(() => {
@@ -93,6 +138,17 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
       </div>
 
       <div className="px-4 sm:px-6 lg:px-8 py-6">
+        {/* Excel Export Butonu */}
+        <div className="mb-4">
+          <button
+            onClick={exportToExcel}
+            className="bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-2 rounded-lg transition-colors flex items-center gap-2"
+          >
+            <span>📥</span>
+            <span>Excel İndir ({formatNumber(filteredOrders.length)} sipariş)</span>
+          </button>
+        </div>
+
         {/* Filtreler */}
         <div className="bg-white rounded-lg shadow p-4 mb-6 border border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -170,23 +226,38 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Sipariş No
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Müşteri
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Sipariş Durumu
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ödeme Durumu
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Kargo Durumu
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Kargo Firması
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ödeme Tipi
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Kampüs
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Sınıf
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Kullanıcı
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tarih
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Durum
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tutar
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Toplam
                   </th>
                 </tr>
               </thead>
@@ -196,25 +267,37 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
                     key={order.id}
                     className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
                       {order.custom_order_number}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div>{order.customer_info}</div>
-                      {order.customer_email && (
-                        <div className="text-xs text-gray-500">{order.customer_email}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {order.campus || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {formatDateTime(order.created_on)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
                       {getStatusBadge(order.order_status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-gray-900">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      {order.payment_status}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      {order.shipping_status || '-'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      {order.shipping_method_name || '-'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      {order.payment_method || '-'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      {order.campus || '-'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      {order.class || '-'}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <div className="max-w-xs truncate">{order.customer_info}</div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      {formatDateTime(order.created_on)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">
                       {formatCurrency(calculateNetRevenue(order))}
                     </td>
                   </tr>
