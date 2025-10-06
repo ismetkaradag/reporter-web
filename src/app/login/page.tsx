@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -38,6 +39,16 @@ export default function LoginPage() {
       <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
         {/* Logo/Header */}
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/logo.jpg"
+              alt="Yönder Logo"
+              width={200}
+              height={80}
+              className="object-contain"
+              priority
+            />
+          </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Yönder Rapor</h1>
           <p className="text-gray-600">Rapor sistemine giriş yapın</p>
         </div>

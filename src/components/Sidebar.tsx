@@ -54,8 +54,8 @@ export default function Sidebar() {
         <div className="flex flex-col h-full">
           {/* Logo/Header */}
           <div className="p-6 border-b border-gray-200">
-            <h1 className="text-xl font-bold text-gray-900">Yönder Rapor</h1>
-            <p className="text-xs text-gray-500 mt-1">Rapor Sistemi</p>
+            <h1 className="text-xl font-bold text-gray-900">Opnius Raporlama</h1>
+            <p className="text-xs text-gray-500 mt-1">Yönder Okulları</p>
           </div>
 
           {/* Navigation */}
