@@ -125,11 +125,9 @@ export async function upsertOrdersToSupabase(
  */
 export async function syncOrdersToSupabase(
   orders: ExternalOrder[]
-): Promise<{ inserted: number; updated: number; failed: number }> {
+): Promise<{ failed: number }> {
   const supabase = getServiceRoleClient();
 
-  let inserted = 0;
-  let updated = 0;
   let failed = 0;
 
   // Filtre: null/undefined siparişleri temizle
@@ -140,12 +138,6 @@ export async function syncOrdersToSupabase(
     try {
       const dbOrder = transformExternalOrderToDbOrder(externalOrder);
 
-      // Önce kontrol et, var mı?
-      const { data: existing } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('id', dbOrder.id)
-        .single();
 
       const { error } = await supabase
         .from('orders')
@@ -157,22 +149,16 @@ export async function syncOrdersToSupabase(
       if (error) {
         console.error(`❌ Sipariş #${dbOrder.id} kaydedilemedi:`, error.message);
         failed++;
-      } else {
-        if (existing) {
-          updated++;
-        } else {
-          inserted++;
-        }
-      }
+      } 
     } catch (error: any) {
       console.error(`❌ Sipariş dönüştürme hatası:`, error.message);
       failed++;
     }
   }
 
-  console.log(`✅ Sync tamamlandı - Eklenen: ${inserted}, Güncellenen: ${updated}, Başarısız: ${failed}`);
+  console.log(`✅ Sync tamamlandı - Başarısız: ${failed}`);
 
-  return { inserted, updated, failed };
+  return { failed };
 }
 
 /**

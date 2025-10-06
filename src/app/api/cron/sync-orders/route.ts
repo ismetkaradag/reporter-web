@@ -7,11 +7,6 @@ export async function GET(request: NextRequest) {
     // Auth kontrolü: Vercel CRON_SECRET veya manuel SYNC_TOKEN
     const authHeader = request.headers.get('authorization');
 
-    // Debug için
-    console.log('🔐 Auth Header:', authHeader ? 'Present' : 'Missing');
-    console.log('🔑 CRON_SECRET:', process.env.CRON_SECRET ? 'Set' : 'Not set');
-    console.log('🔑 SYNC_TOKEN:', process.env.SYNC_TOKEN ? 'Set' : 'Not set');
-
     // Vercel otomatik olarak CRON_SECRET kullanır (production)
     // Manuel tetiklemede SYNC_TOKEN kullanılır
     const validCronSecret = process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
@@ -19,9 +14,6 @@ export async function GET(request: NextRequest) {
 
     if (!validCronSecret && !validSyncToken) {
       console.error('❌ Unauthorized: Invalid or missing token');
-      console.error('Expected CRON_SECRET:', process.env.CRON_SECRET ? 'Bearer ' + process.env.CRON_SECRET : 'N/A');
-      console.error('Expected SYNC_TOKEN:', process.env.SYNC_TOKEN ? 'Bearer ' + process.env.SYNC_TOKEN : 'N/A');
-      console.error('Received:', authHeader || 'N/A');
       return new Response('Unauthorized', {
         status: 401,
       });
@@ -52,8 +44,6 @@ export async function GET(request: NextRequest) {
       message: 'Senkronizasyon tamamlandı',
       stats: {
         totalOrders: orders.length,
-        inserted: result.inserted,
-        updated: result.updated,
         failed: result.failed,
         duration: `${duration}s`,
       },
