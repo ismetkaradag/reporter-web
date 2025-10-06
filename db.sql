@@ -274,6 +274,60 @@ $$ LANGUAGE plpgsql IMMUTABLE;
 -- Bu kısım uygulama başlangıcında çalıştırılmalı
 
 -- ================================================
+-- 7.5. MÜŞTERİLER TABLOSU
+-- ================================================
+CREATE TABLE IF NOT EXISTS customers (
+    -- Primary Key
+    id BIGINT PRIMARY KEY,
+
+    -- Müşteri Temel Bilgileri
+    email_or_phone TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    first_name TEXT,
+    last_name TEXT,
+    full_name TEXT NOT NULL,
+    date_of_birth TIMESTAMPTZ,
+    gender TEXT,
+    identity_number TEXT,
+
+    -- Müşteri Durumu
+    active BOOLEAN DEFAULT TRUE,
+    authorize_email_marketing BOOLEAN DEFAULT FALSE,
+    authorize_sms_marketing BOOLEAN DEFAULT FALSE,
+    customer_role_names TEXT,
+
+    -- Okul Bilgileri
+    stage_id INTEGER DEFAULT 0,
+    stage_name TEXT,
+    student_class_id INTEGER DEFAULT 0,
+    student_class_name TEXT,
+    membership_id INTEGER DEFAULT 0,
+    membership_name TEXT,
+    campus_id INTEGER DEFAULT 0,
+    campus_name TEXT,
+
+    -- Aktivite Bilgileri
+    created_on TIMESTAMPTZ NOT NULL,
+    last_activity_date TIMESTAMPTZ,
+    last_ip_address TEXT,
+
+    -- Metadata
+    synced_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Customers tablosu için indexler
+CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email) WHERE email IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone) WHERE phone IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_customers_identity ON customers(identity_number) WHERE identity_number IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_customers_campus ON customers(campus_id) WHERE campus_id > 0;
+CREATE INDEX IF NOT EXISTS idx_customers_class ON customers(student_class_id) WHERE student_class_id > 0;
+CREATE INDEX IF NOT EXISTS idx_customers_active ON customers(active) WHERE active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_customers_created ON customers(created_on DESC);
+CREATE INDEX IF NOT EXISTS idx_customers_full_name ON customers(full_name);
+
+-- ================================================
 -- 8. PERFORMANS İÇİN MATERIALIZED VIEW'LER (Opsiyonel)
 -- ================================================
 

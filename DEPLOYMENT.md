@@ -38,6 +38,10 @@ vercel.json dosyası zaten yapılandırılmıştır, sadece deploy edin:
     {
       "path": "/api/cron/sync-orders",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/sync-users",
+      "schedule": "0 13 * * *"
     }
   ]
 }
@@ -54,6 +58,8 @@ vercel.json dosyası zaten yapılandırılmıştır, sadece deploy edin:
 
 ### Manuel Sync Tetikleme
 
+#### Siparişler (sync-orders)
+
 ```bash
 # Production'da SYNC_TOKEN ile
 curl -H "Authorization: Bearer YOUR_SYNC_TOKEN" \
@@ -66,6 +72,18 @@ curl -H "Authorization: Bearer local-test-secret" \
 # Local test (SYNC_TOKEN ile)
 curl -H "Authorization: Bearer aa7d841d5f1f78ac61fce7545f30eb14dfbb2013163682223f78a3192b75fbbb" \
   http://localhost:3000/api/cron/sync-orders
+```
+
+#### Müşteriler (sync-users)
+
+```bash
+# Production'da SYNC_TOKEN ile
+curl -H "Authorization: Bearer YOUR_SYNC_TOKEN" \
+  https://your-domain.vercel.app/api/cron/sync-users
+
+# Local test
+curl -H "Authorization: Bearer aa7d841d5f1f78ac61fce7545f30eb14dfbb2013163682223f78a3192b75fbbb" \
+  http://localhost:3000/api/cron/sync-users
 ```
 
 ### Response Örneği

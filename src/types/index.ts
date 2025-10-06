@@ -247,6 +247,64 @@ export interface CampusStats {
   cancelledOrders: number;
 }
 
+// Dış API'den gelen customer verisi
+export interface ExternalCustomer {
+  id: number;
+  emailOrPhone: string;
+  email: string | null;
+  phone: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  fullName: string;
+  dateOfBirth: string | null;
+  gender: string | null;
+  identityNumber: string | null;
+  active: boolean;
+  authorizeEmailMarketing: boolean;
+  authorizeSmsMarketing: boolean;
+  customerRoleNames: string;
+  stageId: number;
+  stageName: string;
+  classId: number;
+  className: string;
+  membershipId: number;
+  membershipName: string;
+  campusId: number;
+  campusName: string;
+  createdOn: string;
+  lastActivityDate: string;
+  lastIpAddress: string | null;
+}
+
+// Supabase'deki customer verisi
+export interface Customer {
+  id: number;
+  email_or_phone: string;
+  email: string | null;
+  phone: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  full_name: string;
+  date_of_birth: string | null;
+  gender: string | null;
+  identity_number: string | null;
+  active: boolean;
+  authorize_email_marketing: boolean;
+  authorize_sms_marketing: boolean;
+  customer_role_names: string;
+  stage_id: number;
+  stage_name: string;
+  student_class_id: number;
+  student_class_name: string;
+  membership_id: number;
+  membership_name: string;
+  campus_id: number;
+  campus_name: string;
+  created_on: string;
+  last_activity_date: string;
+  last_ip_address: string | null;
+}
+
 // Login yanıtı
 export interface LoginResponse {
   version: string;

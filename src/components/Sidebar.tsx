@@ -16,6 +16,7 @@ const menuItems: MenuItem[] = [
   { name: 'Tüm Siparişler', href: '/orders', icon: '📦' },
   { name: 'Kampüs Satış Raporu', href: '/campus-sales-report', icon: '🏫' },
   { name: 'Ürün Satış Raporu', href: '/product-sales-report', icon: '🛍️' },
+  { name: 'Satış Oranları Raporu', href: '/sales-rates-report', icon: '📈' },
 ];
 
 export default function Sidebar() {

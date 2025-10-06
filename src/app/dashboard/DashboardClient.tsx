@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import type { Order } from '@/types';
 import StatCard from '@/components/StatCard';
 import CampusStatsTable from '@/components/CampusStatsTable';
+import OrderHeatmap from '@/components/OrderHeatmap';
 import {
   calculateDashboardStats,
   calculateCampusStats,
@@ -27,7 +28,7 @@ interface DashboardClientProps {
 type DateRangeType = 'today' | 'yesterday' | 'week' | 'month' | 'all';
 
 export default function DashboardClient({ orders }: DashboardClientProps) {
-  const [dateRange, setDateRange] = useState<DateRangeType>('all');
+  const [dateRange, setDateRange] = useState<DateRangeType>('today');
   const [selectedCampus, setSelectedCampus] = useState<string>('all');
 
   const campuses = useMemo(() => getAllCampuses(), []);
@@ -224,6 +225,9 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
             </div>
           </div>
         </div>
+
+        {/* Sipariş Yoğunluk Haritası */}
+        <OrderHeatmap orders={filteredOrders} />
 
         {/* Kampüs İstatistikleri */}
         <CampusStatsTable stats={campusStats} />

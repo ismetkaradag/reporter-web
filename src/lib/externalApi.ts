@@ -195,3 +195,122 @@ export async function fetchOrdersByDateRange(
 
   return allOrders;
 }
+
+// ================================================
+// CUSTOMER API METHODS
+// ================================================
+
+interface CustomerListApiResponse {
+  success: boolean;
+  statusCode: number;
+  errors: string[];
+  data: import('@/types').ExternalCustomer[];
+  pageIndex: number;
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  firstItem: number;
+  lastItem: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
+interface CustomerListResponse {
+  data: import('@/types').ExternalCustomer[];
+  pageIndex: number;
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  firstItem: number;
+  lastItem: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
+/**
+ * Belirli bir sayfadaki customer'ları çek
+ */
+async function fetchCustomersPage(
+  pageIndex: number = 1,
+  pageSize: number = 100
+): Promise<CustomerListResponse> {
+  const token = await loginToExternalApi();
+
+  const requestBody = {
+    pageIndex,
+    pageSize,
+  };
+
+  const response = await fetch(`${BASE_URL}adminapi/customer/list`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'Cookie': `.Application.Customer=${COOKIE_VALUE}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch customers: ${response.statusText}`);
+  }
+
+  const result: CustomerListApiResponse = await response.json();
+
+  if (!result.success) {
+    throw new Error(`Failed to fetch customers: ${result.errors.join(', ')}`);
+  }
+
+  return {
+    data: result.data || [],
+    pageIndex: result.pageIndex,
+    pageNumber: result.pageNumber,
+    pageSize: result.pageSize,
+    totalItems: result.totalItems,
+    totalPages: result.totalPages,
+    firstItem: result.firstItem,
+    lastItem: result.lastItem,
+    hasPreviousPage: result.hasPreviousPage,
+    hasNextPage: result.hasNextPage,
+  };
+}
+
+/**
+ * TÜM customer'ları pagination ile çek (Misafir hariç)
+ */
+export async function fetchAllCustomers(
+  onProgress?: (current: number, total: number) => void
+): Promise<import('@/types').ExternalCustomer[]> {
+  let allCustomers: import('@/types').ExternalCustomer[] = [];
+  let currentPage = 1;
+  let totalPages = 1;
+
+  while (currentPage <= totalPages) {
+    const response = await fetchCustomersPage(currentPage, 100);
+
+    // "Misafir" içerenleri filtrele
+    const filteredCustomers = response.data.filter(
+      (customer) => !customer.customerRoleNames.includes('Misafir')
+    );
+
+    allCustomers = allCustomers.concat(filteredCustomers);
+    totalPages = response.totalPages;
+
+    if (onProgress) {
+      onProgress(currentPage, totalPages);
+    }
+
+    console.log(`Fetched customers page ${currentPage}/${totalPages} - Total: ${allCustomers.length} (filtered)`);
+
+    currentPage++;
+
+    // Rate limiting
+    if (currentPage <= totalPages) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  return allCustomers;
+}

@@ -1,5 +1,5 @@
 import { getServiceRoleClient } from './supabase';
-import type { ExternalOrder, Order, Campus } from '@/types';
+import type { ExternalOrder, Order, Campus, ExternalCustomer, Customer } from '@/types';
 
 /**
  * Dış API'den gelen siparişi Supabase formatına çevir
@@ -223,4 +223,85 @@ export async function syncAllData(
   });
 
   if (onProgress) onProgress('Tamamlandı!');
+}
+
+// ================================================
+// CUSTOMER OPERATIONS
+// ================================================
+
+/**
+ * Dış API'den gelen customer'ı Supabase formatına çevir
+ */
+export function transformExternalCustomerToDbCustomer(externalCustomer: ExternalCustomer): Customer {
+  if (!externalCustomer) {
+    throw new Error('ExternalCustomer is null or undefined');
+  }
+
+  return {
+    id: externalCustomer.id,
+    email_or_phone: externalCustomer.emailOrPhone || '',
+    email: externalCustomer.email,
+    phone: externalCustomer.phone,
+    first_name: externalCustomer.firstName,
+    last_name: externalCustomer.lastName,
+    full_name: externalCustomer.fullName || '',
+    date_of_birth: externalCustomer.dateOfBirth,
+    gender: externalCustomer.gender,
+    identity_number: externalCustomer.identityNumber,
+    active: externalCustomer.active,
+    authorize_email_marketing: externalCustomer.authorizeEmailMarketing,
+    authorize_sms_marketing: externalCustomer.authorizeSmsMarketing,
+    customer_role_names: externalCustomer.customerRoleNames || '',
+    stage_id: externalCustomer.stageId || 0,
+    stage_name: externalCustomer.stageName || '',
+    student_class_id: externalCustomer.classId || 0,
+    student_class_name: externalCustomer.className || '',
+    membership_id: externalCustomer.membershipId || 0,
+    membership_name: externalCustomer.membershipName || '',
+    campus_id: externalCustomer.campusId || 0,
+    campus_name: externalCustomer.campusName || '',
+    created_on: externalCustomer.createdOn,
+    last_activity_date: externalCustomer.lastActivityDate,
+    last_ip_address: externalCustomer.lastIpAddress,
+  };
+}
+
+/**
+ * Customer'ları senkronize et - hata olursa devam et
+ */
+export async function syncCustomersToSupabase(
+  customers: ExternalCustomer[]
+): Promise<{ failed: number }> {
+  const supabase = getServiceRoleClient();
+
+  let failed = 0;
+
+  // Filtre: null/undefined customer'ları temizle
+  const validCustomers = customers.filter(customer => customer && customer.id);
+
+  // Teker teker işle - hata olursa devam et
+  for (const externalCustomer of validCustomers) {
+    try {
+      const dbCustomer = transformExternalCustomerToDbCustomer(externalCustomer);
+
+      const { error } = await supabase
+        .from('customers')
+        .upsert(dbCustomer, {
+          onConflict: 'id',
+          ignoreDuplicates: false,
+        });
+
+      if (error) {
+        console.error(`❌ Customer #${dbCustomer.id} kaydedilemedi:`, error.message);
+        failed++;
+      }
+    } catch (error: any) {
+      console.error(`❌ Customer dönüştürme hatası:`, error.message);
+      failed++;
+    }
+  }
+
+  console.log(`✅ Customer sync tamamlandı - Başarısız: ${failed}`);
+
+  return { failed };
 }

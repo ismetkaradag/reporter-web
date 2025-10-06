@@ -198,9 +198,6 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Ürün Satış Raporu</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Sadece başarılı siparişlerdeki ürünler gösterilmektedir
-        </p>
       </div>
 
       {/* Filtreler */}
