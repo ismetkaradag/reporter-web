@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/sync-orders?token=YOUR_SYNC_TOKEN_HERE",
-      "schedule": "0 */6 * * *"
-    }
-  ]
-}

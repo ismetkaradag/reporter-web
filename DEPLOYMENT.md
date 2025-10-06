@@ -20,7 +20,7 @@ SECRET_KEY=<your-secret-key>
 EMAIL=<api-email>
 PASSWORD=<api-password>
 
-# Sync Security Token
+# Sync Security Token (Manuel test için)
 SYNC_TOKEN=<your-sync-token>
 
 # Kampüs Listesi
@@ -29,43 +29,53 @@ NEXT_PUBLIC_KAMPUSLER=Ataşehir Kampüsü,Başakşehir Kampüsü,Batıkent 100. 
 
 ### 2. Vercel Cron Job Yapılandırması
 
-**Önemli:** vercel.json dosyasını deployment öncesi güncelleyin:
+#### Yöntem 1: vercel.json ile (Önerilen)
+
+vercel.json dosyası zaten yapılandırılmıştır, sadece deploy edin:
 
 ```json
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/sync-orders?token=<SYNC_TOKEN_DEĞERİ>",
+      "path": "/api/cron/sync-orders",
       "schedule": "0 */6 * * *"
     }
   ]
 }
 ```
 
-`<SYNC_TOKEN_DEĞERİ>` yerine gerçek SYNC_TOKEN değerini yazın.
+**ÖNEMLI:** Deploy sonrası Vercel Dashboard'dan cron job'ı düzenleyip Authorization header ekleyin:
 
-**NOT:** vercel.json'u git'e commit etmeden önce token'ı kaldırın veya .gitignore'a ekleyin.
+1. Vercel Dashboard → Project → Settings → Cron Jobs
+2. Oluşturulan cron job'ı düzenleyin
+3. "Headers" bölümüne ekleyin:
+   - Key: `Authorization`
+   - Value: `Bearer <SYNC_TOKEN_DEĞERİNİZ>`
 
-### 3. Alternatif: Manuel Cron Setup
+#### Yöntem 2: Vercel Dashboard'dan Manuel Ekleme
 
-vercel.json yerine Vercel Dashboard'dan manuel cron job eklemek için:
-
-1. Vercel Dashboard → Project Settings → Cron Jobs
-2. "Add Cron Job" butonuna tıklayın
-3. URL: `https://your-domain.vercel.app/api/sync-orders?token=<SYNC_TOKEN>`
-4. Schedule: `0 */6 * * *` (Her 6 saatte bir)
+1. vercel.json dosyasındaki crons array'ini boşaltın veya silin
+2. Vercel Dashboard → Project → Settings → Cron Jobs → Add Cron Job
+3. Aşağıdaki bilgileri girin:
+   - **URL**: `/api/cron/sync-orders`
+   - **Schedule**: `0 */6 * * *`
+   - **Headers**:
+     - Key: `Authorization`
+     - Value: `Bearer YOUR_SYNC_TOKEN`
 
 ## Sync API Kullanımı
 
 ### Manuel Sync Tetikleme
 
 ```bash
-# Query parameter ile
-curl "https://your-domain.vercel.app/api/sync-orders?token=YOUR_SYNC_TOKEN"
-
-# Authorization header ile
+# Authorization header ile (önerilen)
 curl -H "Authorization: Bearer YOUR_SYNC_TOKEN" \
-  https://your-domain.vercel.app/api/sync-orders
+  https://your-domain.vercel.app/api/cron/sync-orders
+
+# Local test
+curl -H "Authorization: Bearer aa7d841d5f1f78ac61fce7545f30eb14dfbb2013163682223f78a3192b75fbbb" \
+  http://localhost:3000/api/cron/sync-orders
 ```
 
 ### Response Örneği

@@ -5,19 +5,12 @@ import { syncOrdersToSupabase } from '@/lib/supabaseOperations';
 export async function GET(request: NextRequest) {
   try {
     // SYNC_TOKEN kontrolü
-    // Vercel Cron: Authorization header'dan Bearer token
-    // Manuel: Query param'dan ?token=xxx
     const authHeader = request.headers.get('authorization');
-    const headerToken = authHeader?.replace('Bearer ', '');
-    const queryToken = request.nextUrl.searchParams.get('token');
 
-    const token = headerToken || queryToken;
-
-    if (!token || token !== process.env.SYNC_TOKEN) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
-        { status: 401 }
-      );
+    if (authHeader !== `Bearer ${process.env.SYNC_TOKEN}`) {
+      return new Response('Unauthorized', {
+        status: 401,
+      });
     }
 
     console.log('🔄 Sipariş senkronizasyonu başlatıldı...');
@@ -63,9 +56,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// POST metodu da aynı işlemi yapar (esneklik için)
-export async function POST(request: NextRequest) {
-  return GET(request);
 }
