@@ -94,13 +94,17 @@ export default function Sidebar() {
 
           {/* Footer */}
           <div className="p-4 border-t border-gray-200">
-            <Link
-              href="/"
-              className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+            <button
+              onClick={async () => {
+                const { useAuth } = await import('@/contexts/AuthContext');
+                const { signOut } = useAuth();
+                await signOut();
+              }}
+              className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors w-full"
             >
-              <span>⚙️</span>
-              <span>Ayarlar</span>
-            </Link>
+              <span>🚪</span>
+              <span>Çıkış Yap</span>
+            </button>
           </div>
         </div>
       </aside>
