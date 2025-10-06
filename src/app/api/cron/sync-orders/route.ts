@@ -4,10 +4,16 @@ import { syncOrdersToSupabase } from '@/lib/supabaseOperations';
 
 export async function GET(request: NextRequest) {
   try {
-    // SYNC_TOKEN kontrolü
+    // Auth kontrolü: Vercel CRON_SECRET veya manuel SYNC_TOKEN
     const authHeader = request.headers.get('authorization');
 
-    if (authHeader !== `Bearer ${process.env.SYNC_TOKEN}`) {
+    // Vercel otomatik olarak CRON_SECRET kullanır (production)
+    // Manuel tetiklemede SYNC_TOKEN kullanılır
+    const validCronSecret = process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    const validSyncToken = process.env.SYNC_TOKEN && authHeader === `Bearer ${process.env.SYNC_TOKEN}`;
+
+    if (!validCronSecret && !validSyncToken) {
+      console.error('❌ Unauthorized: Invalid or missing token');
       return new Response('Unauthorized', {
         status: 401,
       });

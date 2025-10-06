@@ -29,8 +29,6 @@ NEXT_PUBLIC_KAMPUSLER=Ataşehir Kampüsü,Başakşehir Kampüsü,Batıkent 100. 
 
 ### 2. Vercel Cron Job Yapılandırması
 
-#### Yöntem 1: vercel.json ile (Önerilen)
-
 vercel.json dosyası zaten yapılandırılmıştır, sadece deploy edin:
 
 ```json
@@ -39,41 +37,33 @@ vercel.json dosyası zaten yapılandırılmıştır, sadece deploy edin:
   "crons": [
     {
       "path": "/api/cron/sync-orders",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }
 ```
 
-**ÖNEMLI:** Deploy sonrası Vercel Dashboard'dan cron job'ı düzenleyip Authorization header ekleyin:
+**Deployment sonrası Vercel otomatik olarak:**
+- `CRON_SECRET` environment variable'ını oluşturur
+- Her cron job isteğine `Authorization: Bearer <CRON_SECRET>` header'ı ekler
+- Cron job'ı belirtilen schedule'a göre çalıştırır
 
-1. Vercel Dashboard → Project → Settings → Cron Jobs
-2. Oluşturulan cron job'ı düzenleyin
-3. "Headers" bölümüne ekleyin:
-   - Key: `Authorization`
-   - Value: `Bearer <SYNC_TOKEN_DEĞERİNİZ>`
-
-#### Yöntem 2: Vercel Dashboard'dan Manuel Ekleme
-
-1. vercel.json dosyasındaki crons array'ini boşaltın veya silin
-2. Vercel Dashboard → Project → Settings → Cron Jobs → Add Cron Job
-3. Aşağıdaki bilgileri girin:
-   - **URL**: `/api/cron/sync-orders`
-   - **Schedule**: `0 */6 * * *`
-   - **Headers**:
-     - Key: `Authorization`
-     - Value: `Bearer YOUR_SYNC_TOKEN`
+**Hiçbir ek ayar yapmanıza gerek yok!** Kod hem Vercel'in CRON_SECRET'ini hem de manuel kullanım için SYNC_TOKEN'ı destekler.
 
 ## Sync API Kullanımı
 
 ### Manuel Sync Tetikleme
 
 ```bash
-# Authorization header ile (önerilen)
+# Production'da SYNC_TOKEN ile
 curl -H "Authorization: Bearer YOUR_SYNC_TOKEN" \
   https://your-domain.vercel.app/api/cron/sync-orders
 
-# Local test
+# Local test (CRON_SECRET ile)
+curl -H "Authorization: Bearer local-test-secret" \
+  http://localhost:3000/api/cron/sync-orders
+
+# Local test (SYNC_TOKEN ile)
 curl -H "Authorization: Bearer aa7d841d5f1f78ac61fce7545f30eb14dfbb2013163682223f78a3192b75fbbb" \
   http://localhost:3000/api/cron/sync-orders
 ```
@@ -98,11 +88,12 @@ curl -H "Authorization: Bearer aa7d841d5f1f78ac61fce7545f30eb14dfbb2013163682223
 
 vercel.json içinde schedule değerini düzenleyin:
 
-- `0 */6 * * *` - Her 6 saatte bir (varsayılan)
-- `0 */12 * * *` - Her 12 saatte bir
+- `0 12 * * *` - Her gün öğlen 12:00 (varsayılan)
 - `0 0 * * *` - Her gün gece yarısı
+- `0 9 * * *` - Her gün sabah 09:00
+- `0 */6 * * *` - Her 6 saatte bir
+- `0 */12 * * *` - Her 12 saatte bir
 - `*/30 * * * *` - Her 30 dakikada bir
-- `0 9 * * *` - Her gün saat 09:00'da
 
 Cron expression'ları için: [crontab.guru](https://crontab.guru)
 
