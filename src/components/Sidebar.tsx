@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MenuItem {
   name: string;
@@ -19,6 +20,7 @@ const menuItems: MenuItem[] = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const { signOut } = useAuth();
 
   return (
     <>
@@ -95,11 +97,7 @@ export default function Sidebar() {
           {/* Footer */}
           <div className="p-4 border-t border-gray-200">
             <button
-              onClick={async () => {
-                const { useAuth } = await import('@/contexts/AuthContext');
-                const { signOut } = useAuth();
-                await signOut();
-              }}
+              onClick={() => signOut()}
               className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors w-full"
             >
               <span>🚪</span>
