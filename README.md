@@ -1,4 +1,4 @@
-# Yönder Rapor Sistemi
+# Rapor Sistemi
 
 Next.js 15 tabanlı, Supabase kullanan rapor ve analiz sistemi. Dış e-ticaret API'sinden sipariş verilerini çekerek Supabase veritabanında saklar ve raporlama yapar.
 

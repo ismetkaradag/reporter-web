@@ -1,5 +1,5 @@
 -- ================================================
--- YÖNDER RAPOR SİSTEMİ - VERİTABANI ŞEMASI
+--  RAPOR SİSTEMİ - VERİTABANI ŞEMASI
 -- ================================================
 -- Bu dosya her güncelleme sonrası yeniden oluşturulur
 -- SQL editörde çalıştırarak tabloları oluşturabilirsiniz

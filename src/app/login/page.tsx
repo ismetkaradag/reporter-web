@@ -42,14 +42,14 @@ export default function LoginPage() {
           <div className="flex justify-center mb-4">
             <Image
               src="/logo.jpg"
-              alt="Yönder Logo"
+              alt="Logo"
               width={200}
               height={80}
               className="object-contain"
               priority
             />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Yönder Rapor</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2"> {process.env.NEXT_PUBLIC_SCHOOL_NAME}</h1>
           <p className="text-gray-600">Rapor sistemine giriş yapın</p>
         </div>
 

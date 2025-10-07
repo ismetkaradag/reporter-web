@@ -3,8 +3,8 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "Yönder Rapor Sistemi",
-  description: "Yönder okulları rapor ve analiz sistemi",
+  title: process.env.NEXT_PUBLIC_SCHOOL_NAME + " Raporlama",
+  description: process.env.NEXT_PUBLIC_SCHOOL_NAME + " için gelişmiş raporlama uygulaması.",
 };
 
 export default function RootLayout({

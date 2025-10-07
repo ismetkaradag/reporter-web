@@ -56,7 +56,7 @@ export default function Sidebar() {
           {/* Logo/Header */}
           <div className="p-6 border-b border-gray-200">
             <h1 className="text-xl font-bold text-gray-900">Opnius Raporlama</h1>
-            <p className="text-xs text-gray-500 mt-1">Yönder Okulları</p>
+            <p className="text-xs text-gray-500 mt-1">{process.env.NEXT_PUBLIC_SCHOOL_NAME}</p>
           </div>
 
           {/* Navigation */}

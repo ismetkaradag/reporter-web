@@ -1,5 +1,5 @@
 -- ================================================
--- YÖNDER RAPOR SİSTEMİ - VERİTABANI ŞEMASI (CLEAN)
+--  RAPOR SİSTEMİ - VERİTABANI ŞEMASI (CLEAN)
 -- ================================================
 -- Önce tabloları silin, sonra bu dosyayı çalıştırın
 -- ================================================
