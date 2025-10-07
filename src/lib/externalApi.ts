@@ -241,6 +241,7 @@ async function fetchCustomersPage(
   const requestBody = {
     pageIndex,
     pageSize,
+    "SearchCustomerRoleIds": ["3"]
   };
 
   const response = await fetch(`${BASE_URL}adminapi/customer/list`, {
