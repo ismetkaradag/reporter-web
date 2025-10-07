@@ -44,7 +44,7 @@ export function getOrderStatus(orderStatus: string, paymentStatus: string): Orde
  * Dashboard'da sadece başarılı siparişler toplam ciroya dahil edilir.
  * İptal ve iade tutarları ayrı gösterilir.
  */
-export function calculateNetRevenue(order: Order): number {
+export function calculateNetRevenue(order: Order | { order_total: number; payment_method_additional_fee_incl_tax: number }): number {
   return order.order_total - (order.payment_method_additional_fee_incl_tax || 0);
 }
 
@@ -62,21 +62,21 @@ export function calculateTotalDiscount(order: Order): number {
 /**
  * Başarılı sipariş mi kontrol et
  */
-export function isSuccessfulOrder(order: Order): boolean {
+export function isSuccessfulOrder(order: Order | { order_status: string; payment_status: string }): boolean {
   return getOrderStatus(order.order_status, order.payment_status) === 'basarili';
 }
 
 /**
  * İptal edilmiş sipariş mi kontrol et
  */
-export function isCancelledOrder(order: Order): boolean {
+export function isCancelledOrder(order: Order | { order_status: string; payment_status: string }): boolean {
   return getOrderStatus(order.order_status, order.payment_status) === 'iptal';
 }
 
 /**
  * İade edilmiş sipariş mi kontrol et
  */
-export function isRefundedOrder(order: Order): boolean {
+export function isRefundedOrder(order: Order | { order_status: string; payment_status: string }): boolean {
   return getOrderStatus(order.order_status, order.payment_status) === 'iade';
 }
 
