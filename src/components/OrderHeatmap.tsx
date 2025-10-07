@@ -53,12 +53,12 @@ export default function OrderHeatmap({ orders }: OrderHeatmapProps) {
 
     const intensity = count / maxOrders;
 
-    // Mavi tonları: açık maviden koyu maviye
-    if (intensity <= 0.2) return 'bg-blue-100';
-    if (intensity <= 0.4) return 'bg-blue-200';
-    if (intensity <= 0.6) return 'bg-blue-300';
-    if (intensity <= 0.8) return 'bg-blue-400';
-    return 'bg-blue-500';
+    // Kırmızı tonları: açık kırmızıdan koyu kırmızıya
+    if (intensity <= 0.2) return 'bg-red-100';
+    if (intensity <= 0.4) return 'bg-red-200';
+    if (intensity <= 0.6) return 'bg-red-300';
+    if (intensity <= 0.8) return 'bg-red-400';
+    return 'bg-red-500';
   };
 
   return (
@@ -67,7 +67,7 @@ export default function OrderHeatmap({ orders }: OrderHeatmapProps) {
         Sipariş Yoğunluk Haritası
       </h3>
       <p className="text-sm text-gray-600 mb-6">
-        Siparişlerin gün ve saate göre dağılımı
+        Siparişlerin gün ve saate göre dağılımı (Tüm zamanlar)
       </p>
 
       <div className="overflow-x-auto">
@@ -122,11 +122,11 @@ export default function OrderHeatmap({ orders }: OrderHeatmapProps) {
         <span className="text-sm text-gray-600">Az</span>
         <div className="flex gap-1">
           <div className="w-8 h-4 bg-gray-50 border border-gray-200"></div>
-          <div className="w-8 h-4 bg-blue-100 border border-gray-200"></div>
-          <div className="w-8 h-4 bg-blue-200 border border-gray-200"></div>
-          <div className="w-8 h-4 bg-blue-300 border border-gray-200"></div>
-          <div className="w-8 h-4 bg-blue-400 border border-gray-200"></div>
-          <div className="w-8 h-4 bg-blue-500 border border-gray-200"></div>
+          <div className="w-8 h-4 bg-red-100 border border-gray-200"></div>
+          <div className="w-8 h-4 bg-red-200 border border-gray-200"></div>
+          <div className="w-8 h-4 bg-red-300 border border-gray-200"></div>
+          <div className="w-8 h-4 bg-red-400 border border-gray-200"></div>
+          <div className="w-8 h-4 bg-red-500 border border-gray-200"></div>
         </div>
         <span className="text-sm text-gray-600">Çok</span>
         <span className="text-sm text-gray-500 ml-4">

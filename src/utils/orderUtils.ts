@@ -89,11 +89,11 @@ export function hasRewardPointsUsed(order: Order): boolean {
 
 /**
  * Dashboard'da gösterilecek sipariş mi kontrol et
- * Başarısız ve onay bekliyor siparişler hariç tutulur
+ * Başarısız, onay bekliyor ve kampüsü olmayan siparişler hariç tutulur
  */
 export function shouldShowInDashboard(order: Order): boolean {
   const status = getOrderStatus(order.order_status, order.payment_status);
-  return status !== 'basarisiz' && status !== 'onay-bekliyor';
+  return status !== 'basarisiz' && status !== 'onay-bekliyor' && !!order.campus;
 }
 
 /**

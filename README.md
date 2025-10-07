@@ -178,7 +178,3 @@ npm start
 - **date-fns 3.6** - Date utilities
 - **xlsx 0.18** - Excel export
 - **lucide-react** - Icons
-
-## 📄 Lisans
-
-Bu proje Yönder Okulları için geliştirilmiştir.

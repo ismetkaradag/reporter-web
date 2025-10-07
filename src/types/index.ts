@@ -227,7 +227,11 @@ export type OrderStatusType = 'iptal' | 'iade' | 'onay-bekliyor' | 'basarili' | 
 // Dashboard istatistikleri
 export interface DashboardStats {
   totalOrders: number;
+  totalExchangeOrders: number; // RT ile başlayan siparişler
+  totalSalesOrders: number; // RT ile başlamayan siparişler
   successfulOrders: number;
+  successfulExchangeOrders: number; // RT ile başlayan başarılı siparişler
+  successfulSalesOrders: number; // RT ile başlamayan başarılı siparişler
   cancelledOrders: number;
   refundedOrders: number;
   totalRevenue: number;
@@ -236,6 +240,7 @@ export interface DashboardStats {
   refundedRevenue: number;
   averageOrderValue: number;
   rewardPointsUsed: number;
+  totalDiscountAmount: number; // Toplam indirim (ürün bazlı + sipariş bazlı)
 }
 
 // Kampüs bazlı istatistik
@@ -311,4 +316,119 @@ export interface LoginResponse {
   token: string;
   refreshToken: string;
   expiresIn: number;
+}
+
+// ================================================
+// PRODUCT TYPES
+// ================================================
+
+// Dış API'den gelen ürün resmi
+export interface ExternalProductPicture {
+  id: number;
+  pictureUrl: string;
+  displayOrder: number;
+}
+
+// Dış API'den gelen ürün kategorisi
+export interface ExternalProductCategory {
+  id: number;
+  category: string;
+  categoryId: number;
+  displayOrder: number;
+}
+
+// Dış API'den gelen ürün üreticisi
+export interface ExternalProductManufacturer {
+  id: number;
+  manufacturer: string;
+  manufacturerId: number;
+  displayOrder: number;
+}
+
+// Dış API'den gelen ürün kombinasyon attribute
+export interface ExternalProductAttribute {
+  id: number;
+  name: string;
+  value: string;
+}
+
+// Dış API'den gelen ürün kombinasyonu (beden varyasyonları)
+export interface ExternalProductCombination {
+  id: number;
+  stockQuantity: number;
+  sku: string;
+  gtin: string;
+  published: boolean;
+  overriddenPrice: number | null;
+  attributes: ExternalProductAttribute[];
+}
+
+// Dış API'den gelen ürün spesifikasyonu
+export interface ExternalProductSpecification {
+  id: number;
+  name: string;
+  value: string;
+  displayOrder: number;
+}
+
+// Dış API'den gelen ürün
+export interface ExternalProduct {
+  id: number;
+  name: string;
+  shortDescription: string | null;
+  fullDescription: string;
+  metaKeywords: string;
+  metaDescription: string;
+  metaTitle: string;
+  seName: string;
+  modelCode: string;
+  sku: string;
+  gtin: string;
+  placeCode: string | null;
+  videoUrl: string | null;
+  taxCategoryId: number;
+  taxCategoryName: string;
+  vendorId: number | null;
+  vendorName: string | null;
+  price: number;
+  oldPrice: number;
+  productCost: number;
+  price1: number;
+  price2: number;
+  price3: number;
+  price4: number;
+  price5: number;
+  stockQuantity: number;
+  weight: number;
+  published: boolean;
+  createdOn: string;
+  updatedOn: string;
+  productPictures: ExternalProductPicture[];
+  productCategories: ExternalProductCategory[];
+  productManufacturers: ExternalProductManufacturer[];
+  productCombinations: ExternalProductCombination[];
+  productSpecifications: ExternalProductSpecification[];
+}
+
+// Supabase'deki ürün tablosu
+export interface Product {
+  id: number;
+  name: string;
+  short_description: string | null;
+  full_description: string;
+  model_code: string;
+  sku: string;
+  gtin: string;
+  price: number;
+  old_price: number;
+  stock_quantity: number;
+  published: boolean;
+  created_on: string;
+  updated_on: string;
+  pictures: any; // JSONB - ProductPicture[]
+  categories: any; // JSONB - ProductCategory[]
+  manufacturers: any; // JSONB - ProductManufacturer[]
+  combinations: any; // JSONB - ProductCombination[]
+  specifications: any; // JSONB - ProductSpecification[]
+  synced_at: string | null;
 }

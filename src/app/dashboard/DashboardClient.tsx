@@ -10,7 +10,6 @@ import {
   calculateCampusStats,
   filterOrdersByDateRange,
   filterOrdersByCampus,
-  calculateOrderStatusDistribution,
 } from '@/utils/dashboardStats';
 import {
   getTodayRange,
@@ -28,7 +27,7 @@ interface DashboardClientProps {
 type DateRangeType = 'today' | 'yesterday' | 'week' | 'month' | 'all';
 
 export default function DashboardClient({ orders }: DashboardClientProps) {
-  const [dateRange, setDateRange] = useState<DateRangeType>('today');
+  const [dateRange, setDateRange] = useState<DateRangeType>('all');
   const [selectedCampus, setSelectedCampus] = useState<string>('all');
 
   const campuses = useMemo(() => getAllCampuses(), []);
@@ -68,10 +67,34 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
   // İstatistikler
   const stats = useMemo(() => calculateDashboardStats(filteredOrders), [filteredOrders]);
   const campusStats = useMemo(() => calculateCampusStats(filteredOrders), [filteredOrders]);
-  const statusDistribution = useMemo(
-    () => calculateOrderStatusDistribution(filteredOrders),
-    [filteredOrders]
-  );
+
+  // Order_status bazlı dağılım (RT ayrımı ile)
+  const statusDistribution = useMemo(() => {
+    const distribution: Record<string, { total: number; exchange: number; sales: number }> = {};
+    filteredOrders.forEach((order) => {
+      const status = order.order_status;
+      const isExchange = order.custom_order_number.startsWith('RT');
+
+      if (!distribution[status]) {
+        distribution[status] = { total: 0, exchange: 0, sales: 0 };
+      }
+
+      distribution[status].total++;
+      if (isExchange) {
+        distribution[status].exchange++;
+      } else {
+        distribution[status].sales++;
+      }
+    });
+
+    // En çok olandan aza sırala
+    return Object.entries(distribution)
+      .sort((a, b) => b[1].total - a[1].total)
+      .reduce((acc, [key, value]) => {
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, { total: number; exchange: number; sales: number }>);
+  }, [filteredOrders]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -137,18 +160,20 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
         </div>
 
         {/* Ana İstatistikler */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 mb-6">
           <StatCard
-            title="Toplam Sipariş"
+            title="Toplam Sipariş Adedi"
             value={stats.totalOrders}
             format="number"
+            subtitle={`Değişim: ${stats.totalExchangeOrders} | Satış: ${stats.totalSalesOrders}`}
             icon="📦"
             colorClass="bg-blue-500"
           />
           <StatCard
-            title="Başarılı Sipariş"
+            title="Başarılı Sipariş Adedi"
             value={stats.successfulOrders}
             format="number"
+            subtitle={`Değişim: ${stats.successfulExchangeOrders} | Satış: ${stats.successfulSalesOrders}`}
             icon="✅"
             colorClass="bg-green-500"
           />
@@ -159,19 +184,12 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
             icon="💰"
             colorClass="bg-purple-500"
           />
-          <StatCard
-            title="Ortalama Sipariş"
-            value={stats.averageOrderValue}
-            format="currency"
-            icon="📊"
-            colorClass="bg-indigo-500"
-          />
         </div>
 
         {/* İkincil İstatistikler */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <StatCard
-            title="İptal Edilen"
+            title="Ödemesi Alınan ve İptal Edilen Sipariş Adedi"
             value={stats.cancelledOrders}
             format="number"
             subtitle={`Tutar: ${new Intl.NumberFormat('tr-TR', {
@@ -199,38 +217,74 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
             icon="🎁"
             colorClass="bg-pink-500"
           />
+          <StatCard
+            title="Uygulanan İndirim"
+            value={stats.totalDiscountAmount}
+            format="currency"
+            icon="🏷️"
+            colorClass="bg-purple-500"
+          />
         </div>
 
-        {/* Sipariş Durum Dağılımı - Sadece gösterilen durumlar */}
+        {/* Sipariş Durum Dağılımı - Order Status bazlı */}
         <div className="bg-white rounded-lg shadow p-6 mb-6 border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Sipariş Durum Dağılımı</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <div className="text-4xl font-bold text-green-600">
-                {statusDistribution.basarili}
-              </div>
-              <div className="text-sm text-gray-700 mt-2 font-medium">Başarılı</div>
-            </div>
-            <div className="text-center p-4 bg-red-50 rounded-lg">
-              <div className="text-4xl font-bold text-red-600">
-                {statusDistribution.iptal}
-              </div>
-              <div className="text-sm text-gray-700 mt-2 font-medium">İptal</div>
-            </div>
-            <div className="text-center p-4 bg-orange-50 rounded-lg">
-              <div className="text-4xl font-bold text-orange-600">
-                {statusDistribution.iade}
-              </div>
-              <div className="text-sm text-gray-700 mt-2 font-medium">İade</div>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {Object.entries(statusDistribution).map(([status, counts]) => {
+              // Durum bazlı renkler
+              const getStatusColor = (status: string) => {
+                if (status.includes('Onaylandı') || status.includes('Tamamlandı')) {
+                  return { bg: 'bg-green-50', text: 'text-green-600' };
+                }
+                if (status.includes('İptal')) {
+                  return { bg: 'bg-red-50', text: 'text-red-600' };
+                }
+                if (status.includes('İade')) {
+                  return { bg: 'bg-orange-50', text: 'text-orange-600' };
+                }
+                if (status.includes('Kargoya') || status.includes('Paketlendi')) {
+                  return { bg: 'bg-purple-50', text: 'text-purple-600' };
+                }
+                if (status.includes('Bekliyor') || status.includes('Toplanıyor')) {
+                  return { bg: 'bg-yellow-50', text: 'text-yellow-600' };
+                }
+                return { bg: 'bg-blue-50', text: 'text-blue-600' };
+              };
+
+              const colors = getStatusColor(status);
+
+              return (
+                <div key={status} className={`text-center p-4 ${colors.bg} rounded-lg`}>
+                  <div className={`text-3xl font-bold ${colors.text}`}>
+                    {counts.total}
+                  </div>
+                  <div className="text-xs text-gray-700 mt-2 font-medium leading-tight">
+                    {status}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Değişim: {counts.exchange} | Satış: {counts.sales}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-
-        {/* Sipariş Yoğunluk Haritası */}
-        <OrderHeatmap orders={filteredOrders} />
-
         {/* Kampüs İstatistikleri */}
-        <CampusStatsTable stats={campusStats} />
+        <div className="mb-6">
+          <CampusStatsTable stats={campusStats} />
+        </div>
+        
+        {/* Günlük Ciro Grafiği - Tüm zamanlar verisi */}
+        {/* <div className="mb-6">
+          <DailyRevenueChart orders={orders} />
+        </div> */}
+
+        {/* Sipariş Yoğunluk Haritası - Tüm zamanlar verisi */}
+        <div className="mb-6">
+          <OrderHeatmap orders={orders} />
+        </div>
+
+        
       </div>
     </div>
   );

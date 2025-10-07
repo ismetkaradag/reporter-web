@@ -26,11 +26,11 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
   const exportToExcel = () => {
     const excelData = filteredOrders.map((order) => ({
       'Sipariş Numarası': order.custom_order_number,
+      'Sipariş Tipi': order.custom_order_number.startsWith('RT') ? 'Değişim' : 'Satış',
       'Sipariş Durumu': order.order_status,
       'Ödeme Durumu': order.payment_status,
-      'Kargo Durumu': order.shipping_status || '-',
+      'Kargo Takip No': order.tracking_number || '-',
       'E-Fatura Durumu': order.erp_status || '-',
-      'Kargo Firması': order.shipping_method_name || '-',
       'Ödeme Tipi': order.payment_method || '-',
       'Kampüs': order.campus || '-',
       'Sınıf': order.class || '-',
@@ -46,11 +46,11 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
     // Kolon genişlikleri
     ws['!cols'] = [
       { wch: 20 }, // Sipariş Numarası
+      { wch: 12 }, // Sipariş Tipi
       { wch: 20 }, // Sipariş Durumu
       { wch: 20 }, // Ödeme Durumu
-      { wch: 15 }, // Kargo Durumu
+      { wch: 25 }, // Kargo Takip No
       { wch: 15 }, // E-Fatura Durumu
-      { wch: 15 }, // Kargo Firması
       { wch: 20 }, // Ödeme Tipi
       { wch: 25 }, // Kampüs
       { wch: 15 }, // Sınıf
@@ -104,16 +104,11 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
     const statusColors: Record<string, string> = {
       'Onaylandı': 'bg-green-100 text-green-800',
       'İptal Edildi': 'bg-red-100 text-red-800',
-      'İptal Tutarı Bankaya İletildi': 'bg-red-100 text-red-800',
       'İade Edildi': 'bg-orange-100 text-orange-800',
       'Onay Bekliyor': 'bg-yellow-100 text-yellow-800',
-      'İşleme Alındı': 'bg-blue-100 text-blue-800',
-      'Netloga Gönderildi': 'bg-blue-100 text-blue-800',
-      'Toplanıyor': 'bg-blue-100 text-blue-800',
-      'Paketlendi': 'bg-indigo-100 text-indigo-800',
-      'Kargoya Verildi': 'bg-purple-100 text-purple-800',
-      'Parçalı Kargo Verildi': 'bg-purple-100 text-purple-800',
+      'Kargoya verildi': 'bg-purple-100 text-purple-800',
       'Tamamlandı': 'bg-green-100 text-green-800',
+      'Ek Durum 1': 'bg-blue-100 text-blue-800',
     };
 
     const color = statusColors[orderStatus] || 'bg-gray-100 text-gray-800';
@@ -208,13 +203,9 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
                 <option value="Onaylandı">Onaylandı</option>
                 <option value="İptal Edildi">İptal Edildi</option>
                 <option value="İade Edildi">İade Edildi</option>
-                <option value="İşleme Alındı">İşleme Alındı</option>
-                <option value="Netloga Gönderildi">Netloga Gönderildi</option>
-                <option value="Toplanıyor">Toplanıyor</option>
-                <option value="Paketlendi">Paketlendi</option>
-                <option value="Kargoya Verildi">Kargoya Verildi</option>
-                <option value="Parçalı Kargo Verildi">Parçalı Kargo Verildi</option>
+                <option value="Kargoya verildi">Kargoya verildi</option>
                 <option value="Tamamlandı">Tamamlandı</option>
+                <option value="Ek Durum 1">Ek Durum 1</option>
               </select>
             </div>
           </div>
@@ -230,16 +221,16 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
                     Sipariş No
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Sipariş Tipi
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Sipariş Durumu
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Ödeme Durumu
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Kargo Durumu
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Kargo Firması
+                    Kargo Takip No
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Ödeme Tipi
@@ -262,46 +253,55 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentOrders.map((order, index) => (
-                  <tr
-                    key={order.id}
-                    className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
-                      {order.custom_order_number}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">
-                      {getStatusBadge(order.order_status)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {order.payment_status}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {order.shipping_status || '-'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {order.shipping_method_name || '-'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {order.payment_method || '-'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {order.campus || '-'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {order.class || '-'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      <div className="max-w-xs truncate">{order.customer_info}</div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                      {formatDateTime(order.created_on)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">
-                      {formatCurrency(calculateNetRevenue(order))}
-                    </td>
-                  </tr>
-                ))}
+                {currentOrders.map((order, index) => {
+                  const isExchange = order.custom_order_number.startsWith('RT');
+                  return (
+                    <tr
+                      key={order.id}
+                      className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
+                        {order.custom_order_number}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${
+                          isExchange
+                            ? 'bg-orange-100 text-orange-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {isExchange ? 'Değişim' : 'Satış'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                        {getStatusBadge(order.order_status)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {order.payment_status}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {order.tracking_number || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {order.payment_method || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {order.campus || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {order.class || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        <div className="max-w-xs truncate">{order.customer_info}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {formatDateTime(order.created_on)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">
+                        {formatCurrency(calculateNetRevenue(order))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

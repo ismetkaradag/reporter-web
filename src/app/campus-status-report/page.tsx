@@ -1,9 +1,8 @@
 import { getServiceRoleClient } from '@/lib/supabase';
-import type { Order, Product } from '@/types';
+import type { Order } from '@/types';
 import MainLayout from '@/components/MainLayout';
-import ProductSalesClient from './ProductSalesClient';
+import CampusStatusClient from './CampusStatusClient';
 import { getAllCampuses } from '@/utils/campusUtils';
-import { filterOrdersForDashboard } from '@/utils/orderUtils';
 
 async function fetchOrders(): Promise<Order[]> {
   const supabase = getServiceRoleClient();
@@ -33,29 +32,13 @@ async function fetchOrders(): Promise<Order[]> {
   return allOrders;
 }
 
-async function fetchProducts(): Promise<Product[]> {
-  const supabase = getServiceRoleClient();
-  const { data, error } = await supabase
-    .from('products')
-    .select('id, name, sku, stock_quantity, combinations');
-
-  if (error) {
-    console.error('Error fetching products:', error);
-    return [];
-  }
-
-  return (data as Product[]) || [];
-}
-
-export default async function ProductSalesReportPage() {
-  const allOrders = await fetchOrders();
-  const orders = filterOrdersForDashboard(allOrders);
-  const products = await fetchProducts();
+export default async function CampusStatusReportPage() {
+  const orders = await fetchOrders();
   const campuses = getAllCampuses();
 
   return (
     <MainLayout>
-      <ProductSalesClient orders={orders} products={products} campuses={campuses} />
+      <CampusStatusClient orders={orders} campuses={campuses} />
     </MainLayout>
   );
 }

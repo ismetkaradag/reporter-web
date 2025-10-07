@@ -314,3 +314,117 @@ export async function fetchAllCustomers(
 
   return allCustomers;
 }
+
+// ================================================
+// PRODUCT API METHODS
+// ================================================
+
+interface ProductListApiResponse {
+  success: boolean;
+  statusCode: number;
+  errors: string[];
+  data: import('@/types').ExternalProduct[];
+  pageIndex: number;
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  firstItem: number;
+  lastItem: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
+interface ProductListResponse {
+  data: import('@/types').ExternalProduct[];
+  pageIndex: number;
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  firstItem: number;
+  lastItem: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
+/**
+ * Belirli bir sayfadaki ürünleri çek
+ */
+async function fetchProductsPage(
+  pageIndex: number = 1,
+  pageSize: number = 100
+): Promise<ProductListResponse> {
+  const token = await loginToExternalApi();
+
+  const requestBody = {
+    pageIndex,
+    pageSize,
+  };
+
+  const response = await fetch(`${BASE_URL}adminapi/product/list-detail`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'Cookie': `.Application.Customer=${COOKIE_VALUE}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch products: ${response.statusText}`);
+  }
+
+  const result: ProductListApiResponse = await response.json();
+
+  if (!result.success) {
+    throw new Error(`Failed to fetch products: ${result.errors.join(', ')}`);
+  }
+
+  return {
+    data: result.data || [],
+    pageIndex: result.pageIndex,
+    pageNumber: result.pageNumber,
+    pageSize: result.pageSize,
+    totalItems: result.totalItems,
+    totalPages: result.totalPages,
+    firstItem: result.firstItem,
+    lastItem: result.lastItem,
+    hasPreviousPage: result.hasPreviousPage,
+    hasNextPage: result.hasNextPage,
+  };
+}
+
+/**
+ * TÜM ürünleri pagination ile çek
+ */
+export async function fetchAllProducts(
+  onProgress?: (current: number, total: number) => void
+): Promise<import('@/types').ExternalProduct[]> {
+  let allProducts: import('@/types').ExternalProduct[] = [];
+  let currentPage = 1;
+  let totalPages = 1;
+
+  while (currentPage <= totalPages) {
+    const response = await fetchProductsPage(currentPage, 100);
+
+    allProducts = allProducts.concat(response.data);
+    totalPages = response.totalPages;
+
+    if (onProgress) {
+      onProgress(currentPage, totalPages);
+    }
+
+    console.log(`Fetched products page ${currentPage}/${totalPages} - Total: ${allProducts.length}`);
+
+    currentPage++;
+
+    // Rate limiting
+    if (currentPage <= totalPages) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  return allProducts;
+}

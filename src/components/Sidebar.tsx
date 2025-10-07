@@ -15,7 +15,8 @@ const menuItems: MenuItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
   { name: 'Tüm Siparişler', href: '/orders', icon: '📦' },
   { name: 'Kampüs Satış Raporu', href: '/campus-sales-report', icon: '🏫' },
-  { name: 'Ürün Satış Raporu', href: '/product-sales-report', icon: '🛍️' },
+  { name: 'Kampüs Durum Raporu', href: '/campus-status-report', icon: '📋' },
+  { name: 'Ürün Stok-Satış Raporu', href: '/product-sales-report', icon: '🛍️' },
   { name: 'Satış Oranları Raporu', href: '/sales-rates-report', icon: '📈' },
 ];
 

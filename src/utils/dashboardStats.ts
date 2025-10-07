@@ -1,6 +1,7 @@
 import type { Order, DashboardStats, CampusStats } from '@/types';
 import {
   calculateNetRevenue,
+  calculateTotalDiscount,
   isSuccessfulOrder,
   isCancelledOrder,
   isRefundedOrder,
@@ -13,7 +14,27 @@ import {
 export function calculateDashboardStats(orders: Order[]): DashboardStats {
   const totalOrders = orders.length;
 
+  // RT ile başlayan siparişler = Değişim
+  const totalExchangeOrders = orders.filter(order =>
+    order.custom_order_number.startsWith('RT')
+  ).length;
+
+  // RT ile başlamayan siparişler = Satış
+  const totalSalesOrders = orders.filter(order =>
+    !order.custom_order_number.startsWith('RT')
+  ).length;
+
   const successfulOrders = orders.filter(isSuccessfulOrder).length;
+
+  // Başarılı siparişlerde RT ayrımı
+  const successfulExchangeOrders = orders.filter(order =>
+    isSuccessfulOrder(order) && order.custom_order_number.startsWith('RT')
+  ).length;
+
+  const successfulSalesOrders = orders.filter(order =>
+    isSuccessfulOrder(order) && !order.custom_order_number.startsWith('RT')
+  ).length;
+
   const cancelledOrders = orders.filter(isCancelledOrder).length;
   const refundedOrders = orders.filter(isRefundedOrder).length;
 
@@ -35,7 +56,8 @@ export function calculateDashboardStats(orders: Order[]): DashboardStats {
   // Toplam ciro = Başarılı siparişlerin cirosu
   const totalRevenue = successfulRevenue;
 
-  const averageOrderValue = successfulOrders > 0 ? successfulRevenue / successfulOrders : 0;
+  // Ortalama sipariş değeri = Ciro / Başarılı Satış Sipariş Sayısı (RT hariç)
+  const averageOrderValue = successfulSalesOrders > 0 ? successfulRevenue / successfulSalesOrders : 0;
 
   // Para puan kullanımı
   const rewardPointsUsed = orders.reduce(
@@ -43,9 +65,19 @@ export function calculateDashboardStats(orders: Order[]): DashboardStats {
     0
   );
 
+  // Toplam indirim tutarı (ürün bazlı + sipariş bazlı)
+  const totalDiscountAmount = orders.reduce(
+    (sum, order) => sum + calculateTotalDiscount(order),
+    0
+  );
+
   return {
     totalOrders,
+    totalExchangeOrders,
+    totalSalesOrders,
     successfulOrders,
+    successfulExchangeOrders,
+    successfulSalesOrders,
     cancelledOrders,
     refundedOrders,
     totalRevenue,
@@ -54,6 +86,7 @@ export function calculateDashboardStats(orders: Order[]): DashboardStats {
     refundedRevenue,
     averageOrderValue,
     rewardPointsUsed,
+    totalDiscountAmount,
   };
 }
 

@@ -195,8 +195,12 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
 
     let result = Array.from(customerMap.values());
 
-    // Filtre: Siparişi olmayanları gösterme (checkbox işaretli değilse)
-    if (!showWithoutOrders) {
+    // Filtre: Checkbox durumuna göre
+    if (showWithoutOrders) {
+      // Checkbox işaretli: SADECE siparişi olmayanlar
+      result = result.filter(r => r.orderCount === 0);
+    } else {
+      // Checkbox işaretsiz: SADECE siparişi olanlar
       result = result.filter(r => r.orderCount > 0);
     }
 
@@ -238,8 +242,6 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
           'Toplam Ciro': row.totalRevenue,
           'Ciro Oranı (%)': revenueRate.toFixed(2),
           'Günlük Ciro': row.dailyRevenue,
-          'İptal Ciro': row.cancelledRevenue,
-          'İade Ciro': row.refundedRevenue,
           'Sipariş Sayısı': row.orderCount,
           'Toplam Kullanıcı': row.totalCustomers,
           'Alışveriş Yapan Kullanıcı': row.customersWithOrders,
@@ -253,8 +255,6 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
         { wch: 15 }, // Toplam Ciro
         { wch: 12 }, // Ciro Oranı
         { wch: 15 }, // Günlük Ciro
-        { wch: 15 }, // İptal Ciro
-        { wch: 15 }, // İade Ciro
         { wch: 12 }, // Sipariş Sayısı
         { wch: 15 }, // Toplam Kullanıcı
         { wch: 20 }, // Alışveriş Yapan Kullanıcı
@@ -271,8 +271,6 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
         'Kampüs': row.campus,
         'Sipariş Sayısı': row.orderCount,
         'Toplam Ciro': row.totalRevenue,
-        'İptal Ciro': row.cancelledRevenue,
-        'İade Ciro': row.refundedRevenue,
       }));
 
       const ws = XLSX.utils.json_to_sheet(excelData);
@@ -282,8 +280,6 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
         { wch: 30 }, // Kampüs
         { wch: 12 }, // Sipariş Sayısı
         { wch: 15 }, // Toplam Ciro
-        { wch: 15 }, // İptal Ciro
-        { wch: 15 }, // İade Ciro
       ];
 
       const wb = XLSX.utils.book_new();
@@ -298,9 +294,6 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
       <div className="mb-6 flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Satış Oranları Raporu</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            En az 1 başarılı siparişi olan müşteriler için satış analizi
-          </p>
         </div>
 
         <button
@@ -383,12 +376,6 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
                     Günlük Ciro
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    İptal Ciro
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    İade Ciro
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Sipariş Sayısı
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
@@ -405,7 +392,7 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
               <tbody className="bg-white divide-y divide-gray-200">
                 {currentData.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                       Veri bulunamadı
                     </td>
                   </tr>
@@ -427,12 +414,6 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
                         </td>
                         <td className="px-6 py-4 text-sm text-blue-600 text-right font-medium">
                           {formatCurrency(row.dailyRevenue)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-red-600 text-right">
-                          {formatCurrency(row.cancelledRevenue)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-orange-600 text-right">
-                          {formatCurrency(row.refundedRevenue)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 text-right">
                           {row.orderCount}
@@ -478,18 +459,12 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                     Toplam Ciro
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    İptal Ciro
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    İade Ciro
-                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {currentData.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                       Veri bulunamadı
                     </td>
                   </tr>
@@ -510,12 +485,6 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
                       </td>
                       <td className="px-6 py-4 text-sm text-green-600 text-right font-medium">
                         {formatCurrency(row.totalRevenue)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-red-600 text-right">
-                        {formatCurrency(row.cancelledRevenue)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-orange-600 text-right">
-                        {formatCurrency(row.refundedRevenue)}
                       </td>
                     </tr>
                   ))

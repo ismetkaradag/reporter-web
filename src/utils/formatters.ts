@@ -1,7 +1,18 @@
 /**
  * Para birimi formatlayıcı
  */
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number, options?: { compact?: boolean }): string {
+  if (options?.compact) {
+    // Kısa format: 1000 -> 1K, 1000000 -> 1M
+    if (amount >= 1000000) {
+      return `₺${(amount / 1000000).toFixed(1)}M`;
+    }
+    if (amount >= 1000) {
+      return `₺${(amount / 1000).toFixed(1)}K`;
+    }
+    return `₺${amount.toFixed(0)}`;
+  }
+
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
     currency: 'TRY',

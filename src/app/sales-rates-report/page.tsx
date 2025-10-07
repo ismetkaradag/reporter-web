@@ -1,6 +1,7 @@
 import { getServiceRoleClient } from '@/lib/supabase';
 import MainLayout from '@/components/MainLayout';
 import SalesRatesClient from './SalesRatesClient';
+import { getOrderStatus } from '@/utils/orderUtils';
 
 // Order tipi (items olmadan)
 interface OrderWithoutItems {
@@ -83,8 +84,14 @@ async function fetchCustomers(): Promise<Customer[]> {
 }
 
 export default async function SalesRatesReportPage() {
-  const orders = await fetchOrdersWithoutItems();
+  const allOrders = await fetchOrdersWithoutItems();
   const customers = await fetchCustomers();
+
+  // Başarısız, onay bekliyor ve kampüsü olmayan siparişleri filtrele
+  const orders = allOrders.filter(order => {
+    const status = getOrderStatus(order.order_status, order.payment_status);
+    return status !== 'basarisiz' && status !== 'onay-bekliyor' && !!order.campus;
+  });
 
   return (
     <MainLayout>

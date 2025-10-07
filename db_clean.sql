@@ -166,7 +166,53 @@ CREATE INDEX idx_customers_created ON customers(created_on DESC);
 CREATE INDEX idx_customers_full_name ON customers(full_name);
 
 -- ================================================
--- 4. FONKSIYONLAR
+-- 4. ÜRÜNLER TABLOSU
+-- ================================================
+CREATE TABLE products (
+    -- Primary Key
+    id BIGINT PRIMARY KEY,
+
+    -- Ürün Temel Bilgileri
+    name TEXT NOT NULL,
+    short_description TEXT,
+    full_description TEXT,
+    model_code TEXT,
+    sku TEXT NOT NULL,
+    gtin TEXT,
+
+    -- Fiyat Bilgileri
+    price DECIMAL(18,4) DEFAULT 0,
+    old_price DECIMAL(18,4) DEFAULT 0,
+
+    -- Stok Bilgisi
+    stock_quantity DECIMAL(18,4) DEFAULT 0,
+
+    -- Durum
+    published BOOLEAN DEFAULT TRUE,
+
+    -- Tarih Bilgileri
+    created_on TIMESTAMPTZ NOT NULL,
+    updated_on TIMESTAMPTZ NOT NULL,
+
+    -- İlişkili Veriler (JSONB)
+    pictures JSONB DEFAULT '[]'::jsonb,
+    categories JSONB DEFAULT '[]'::jsonb,
+    manufacturers JSONB DEFAULT '[]'::jsonb,
+    combinations JSONB DEFAULT '[]'::jsonb,
+    specifications JSONB DEFAULT '[]'::jsonb,
+
+    -- Metadata
+    synced_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Products tablosu için indexler
+CREATE INDEX idx_products_sku ON products(sku);
+CREATE INDEX idx_products_gtin ON products(gtin) WHERE gtin IS NOT NULL;
+CREATE INDEX idx_products_published ON products(published) WHERE published = TRUE;
+CREATE INDEX idx_products_name ON products USING gin(to_tsvector('turkish', name));
+
+-- ================================================
+-- 5. FONKSIYONLAR
 -- ================================================
 
 -- Net ciro hesaplama fonksiyonu
@@ -203,7 +249,7 @@ BEGIN
     END IF;
 
     -- Başarılı (tamamlanmış, onaylanmış, kargoya verilmiş, teslim edilmiş)
-    IF order_status IN ('Tamamlandı', 'Onaylandı', 'Kargoya Verildi', 'Teslim Edildi')
+    IF order_status IN ('Tamamlandı', 'Onaylandı', 'Kargoya verildi', 'Teslim Edildi')
        AND payment_status = 'Ödendi' THEN
         RETURN 'basarili';
     END IF;

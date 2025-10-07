@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { Order } from '@/types';
+import type { Order, Product } from '@/types';
 import * as XLSX from 'xlsx';
 import { isSuccessfulOrder } from '@/utils/orderUtils';
 
 interface ProductSalesClientProps {
   orders: Order[];
+  products: Product[];
   campuses: string[];
 }
 
@@ -17,6 +18,7 @@ interface ProductSale {
   individualSales: number; // Tekil satış adedi
   setBundleSales: number;  // Set içi satış adedi
   totalSales: number;      // Toplam satış adedi
+  stockQuantity: number;   // Stok miktarı
 }
 
 // Set ürünlerinin attributeInfo'sunu parse et
@@ -43,14 +45,42 @@ function parseSetProducts(attributeInfo: string): Array<{ name: string; attribut
   return products;
 }
 
-export default function ProductSalesClient({ orders, campuses }: ProductSalesClientProps) {
+type ViewMode = 'combination' | 'product';
+type SortBy = 'totalSales' | 'stockQuantity' | 'name';
+
+export default function ProductSalesClient({ orders, products, campuses }: ProductSalesClientProps) {
   const [selectedCampuses, setSelectedCampuses] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('combination');
+  const [sortBy, setSortBy] = useState<SortBy>('totalSales');
 
   // Başarılı siparişleri filtrele
   const successfulOrders = useMemo(() => {
     return orders.filter(isSuccessfulOrder);
   }, [orders]);
+
+  // SKU -> Stock Quantity mapping oluştur (combinations'dan)
+  const skuToStockQuantity = useMemo(() => {
+    const map = new Map<string, number>();
+
+    products.forEach((product) => {
+      // Ana ürün SKU'sunu da ekle
+      if (product.sku) {
+        map.set(product.sku, product.stock_quantity || 0);
+      }
+
+      // Combinations'daki SKU'ları ekle
+      if (product.combinations && Array.isArray(product.combinations)) {
+        product.combinations.forEach((combination: any) => {
+          if (combination.sku) {
+            map.set(combination.sku, combination.stockQuantity || 0);
+          }
+        });
+      }
+    });
+
+    return map;
+  }, [products]);
 
   // Ürün satışlarını hesapla
   const productSales = useMemo(() => {
@@ -91,6 +121,7 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
 
           subProducts.forEach((subProduct) => {
             const sku = productNameToSku.get(subProduct.name.trim()) || 'UNKNOWN';
+            const stockQuantity = skuToStockQuantity.get(sku) || 0;
             const key = `${sku}|||${subProduct.name}|||${subProduct.attribute}`;
 
             if (productMap.has(key)) {
@@ -105,6 +136,7 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
                 individualSales: 0,
                 setBundleSales: quantity,
                 totalSales: quantity,
+                stockQuantity,
               });
             }
           });
@@ -113,6 +145,7 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
           const sku = item.sku || 'UNKNOWN';
           const productName = item.productName || 'Bilinmeyen Ürün';
           const attributeInfo = item.attributeInfo || '-';
+          const stockQuantity = skuToStockQuantity.get(sku) || 0;
           const key = `${sku}|||${productName}|||${attributeInfo}`;
 
           if (productMap.has(key)) {
@@ -127,6 +160,7 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
               individualSales: quantity,
               setBundleSales: 0,
               totalSales: quantity,
+              stockQuantity,
             });
           }
         }
@@ -134,19 +168,82 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
     });
 
     return Array.from(productMap.values());
-  }, [successfulOrders, selectedCampuses]);
+  }, [successfulOrders, selectedCampuses, skuToStockQuantity]);
+
+  // Ürün bazlı gruplama (aynı productName'e göre)
+  const productBasedSales = useMemo(() => {
+    const productMap = new Map<string, ProductSale>();
+
+    productSales.forEach((sale) => {
+      const productName = sale.productName;
+
+      if (productMap.has(productName)) {
+        const existing = productMap.get(productName)!;
+        existing.individualSales += sale.individualSales;
+        existing.setBundleSales += sale.setBundleSales;
+        existing.totalSales += sale.totalSales;
+        existing.stockQuantity += sale.stockQuantity;
+      } else {
+        // İlk kez ekleniyorsa, SKU'yu ana ürün SKU'su ile değiştir
+        // ProductName'den SKU bul
+        let mainSku = sale.sku;
+
+        // Products listesinden bu ürünün ana SKU'sunu bul (case-insensitive)
+        const matchingProduct = products.find(
+          p => p.name && p.name.trim().toLowerCase() === productName.trim().toLowerCase()
+        );
+        if (matchingProduct && matchingProduct.sku) {
+          mainSku = matchingProduct.sku;
+        }
+
+        productMap.set(productName, {
+          sku: mainSku,
+          productName,
+          attributeInfo: '', // Ürün bazlı görünümde özellik yok
+          individualSales: sale.individualSales,
+          setBundleSales: sale.setBundleSales,
+          totalSales: sale.totalSales,
+          stockQuantity: sale.stockQuantity,
+        });
+      }
+    });
+
+    return Array.from(productMap.values());
+  }, [productSales, products]);
+
+  // View mode'a göre hangi data'yı kullanacağımıza karar ver
+  const displayData = viewMode === 'combination' ? productSales : productBasedSales;
 
   // Arama filtresi uygula
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return productSales;
+  const searchFilteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return displayData;
 
     const query = searchQuery.toLowerCase();
-    return productSales.filter(
+    return displayData.filter(
       (product) =>
         product.productName.toLowerCase().includes(query) ||
         product.attributeInfo.toLowerCase().includes(query)
     );
-  }, [productSales, searchQuery]);
+  }, [displayData, searchQuery]);
+
+  // Sıralama uygula
+  const filteredProducts = useMemo(() => {
+    const sorted = [...searchFilteredProducts];
+
+    switch (sortBy) {
+      case 'totalSales':
+        sorted.sort((a, b) => b.totalSales - a.totalSales);
+        break;
+      case 'stockQuantity':
+        sorted.sort((a, b) => b.stockQuantity - a.stockQuantity);
+        break;
+      case 'name':
+        sorted.sort((a, b) => a.productName.localeCompare(b.productName, 'tr'));
+        break;
+    }
+
+    return sorted;
+  }, [searchFilteredProducts, sortBy]);
 
   // Toplam istatistikler
   const totalStats = useMemo(() => {
@@ -167,26 +264,45 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
 
   // Excel export
   const exportToExcel = () => {
-    const excelData = filteredProducts.map((product) => ({
-      'SKU': product.sku,
-      'Ürün Adı': product.productName,
-      'Özellik': product.attributeInfo,
-      'Tekil Satış': product.individualSales,
-      'Set İçi Satış': product.setBundleSales,
-      'Toplam Satış': product.totalSales,
-    }));
+    const excelData = filteredProducts.map((product) => {
+      const baseData: any = {
+        'SKU': product.sku,
+        'Ürün Adı': product.productName,
+      };
+
+      // Kombinasyon bazlı görünümde özellik sütunu ekle
+      if (viewMode === 'combination') {
+        baseData['Özellik'] = product.attributeInfo;
+      }
+
+      baseData['Stok Miktarı'] = product.stockQuantity;
+      baseData['Tekil Satış'] = product.individualSales;
+      baseData['Set İçi Satış'] = product.setBundleSales;
+      baseData['Toplam Satış'] = product.totalSales;
+
+      return baseData;
+    });
 
     const ws = XLSX.utils.json_to_sheet(excelData);
 
     // Kolon genişlikleri
-    ws['!cols'] = [
+    const cols = [
       { wch: 15 }, // SKU
       { wch: 40 }, // Ürün Adı
-      { wch: 30 }, // Özellik
+    ];
+
+    if (viewMode === 'combination') {
+      cols.push({ wch: 30 }); // Özellik
+    }
+
+    cols.push(
+      { wch: 12 }, // Stok Miktarı
       { wch: 12 }, // Tekil Satış
       { wch: 12 }, // Set İçi Satış
-      { wch: 12 }, // Toplam Satış
-    ];
+      { wch: 12 }  // Toplam Satış
+    );
+
+    ws['!cols'] = cols;
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Ürün Satış Raporu');
@@ -197,7 +313,53 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
     <div className="p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Ürün Satış Raporu</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Ürün Stok-Satış Raporu</h1>
+      </div>
+
+      {/* Görünüm Modu ve Sıralama */}
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {/* Görünüm Modu Switch */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Görünüm:</span>
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('combination')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'combination'
+                    ? 'bg-white text-blue-600 shadow'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Kombinasyon Bazlı
+              </button>
+              <button
+                onClick={() => setViewMode('product')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'product'
+                    ? 'bg-white text-blue-600 shadow'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Ürün Bazlı
+              </button>
+            </div>
+          </div>
+
+          {/* Sıralama Dropdown */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Sırala:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortBy)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="totalSales">En Çok Satılanlar</option>
+              <option value="stockQuantity">Stok Miktarı</option>
+              <option value="name">İsim (A-Z)</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Filtreler */}
@@ -298,8 +460,13 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ürün Adı
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Özellik
+                {viewMode === 'combination' && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Özellik
+                  </th>
+                )}
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Stok Miktarı
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Tekil Satış
@@ -315,7 +482,7 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={viewMode === 'combination' ? 7 : 6} className="px-6 py-8 text-center text-gray-500">
                     {searchQuery || selectedCampuses.length > 0
                       ? 'Filtrelere uygun ürün bulunamadı'
                       : 'Henüz satış verisi yok'}
@@ -330,8 +497,13 @@ export default function ProductSalesClient({ orders, campuses }: ProductSalesCli
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {product.productName}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {product.attributeInfo}
+                    {viewMode === 'combination' && (
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {product.attributeInfo}
+                      </td>
+                    )}
+                    <td className="px-6 py-4 text-sm text-gray-900 text-right font-medium">
+                      {product.stockQuantity}
                     </td>
                     <td className="px-6 py-4 text-sm text-blue-600 text-right font-medium">
                       {product.individualSales}

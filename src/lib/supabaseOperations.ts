@@ -305,3 +305,76 @@ export async function syncCustomersToSupabase(
 
   return { failed };
 }
+
+// ================================================
+// PRODUCT SYNC OPERATIONS
+// ================================================
+
+/**
+ * External API'den gelen ürünü Supabase formatına dönüştür
+ */
+export function transformExternalProductToDbProduct(
+  externalProduct: import('@/types').ExternalProduct
+): import('@/types').Product {
+  return {
+    id: externalProduct.id,
+    name: externalProduct.name,
+    short_description: externalProduct.shortDescription,
+    full_description: externalProduct.fullDescription,
+    model_code: externalProduct.modelCode,
+    sku: externalProduct.sku,
+    gtin: externalProduct.gtin,
+    price: externalProduct.price,
+    old_price: externalProduct.oldPrice,
+    stock_quantity: externalProduct.stockQuantity,
+    published: externalProduct.published,
+    created_on: externalProduct.createdOn,
+    updated_on: externalProduct.updatedOn,
+    pictures: externalProduct.productPictures,
+    categories: externalProduct.productCategories,
+    manufacturers: externalProduct.productManufacturers,
+    combinations: externalProduct.productCombinations,
+    specifications: externalProduct.productSpecifications,
+    synced_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Ürünleri Supabase'e senkronize et
+ */
+export async function syncProductsToSupabase(
+  products: import('@/types').ExternalProduct[]
+): Promise<{ failed: number }> {
+  const supabase = getServiceRoleClient();
+  let failed = 0;
+
+  console.log(`🔄 ${products.length} ürün Supabase'e senkronize ediliyor...`);
+
+  const validProducts = products.filter(p => p.id && p.name && p.sku);
+  console.log(`✅ ${validProducts.length} geçerli ürün işlenecek`);
+
+  for (const externalProduct of validProducts) {
+    try {
+      const dbProduct = transformExternalProductToDbProduct(externalProduct);
+
+      const { error } = await supabase
+        .from('products')
+        .upsert(dbProduct, {
+          onConflict: 'id',
+          ignoreDuplicates: false,
+        });
+
+      if (error) {
+        console.error(`❌ Product #${dbProduct.id} kaydedilemedi:`, error.message);
+        failed++;
+      }
+    } catch (error: any) {
+      console.error(`❌ Product dönüştürme hatası:`, error.message);
+      failed++;
+    }
+  }
+
+  console.log(`✅ Product sync tamamlandı - Başarısız: ${failed}`);
+
+  return { failed };
+}
