@@ -3,15 +3,15 @@
   "crons": [
     {
       "path": "/api/cron/sync-orders",
-      "schedule": "0 12 * * *"
+      "schedule": "0 20 * * *"
     },
     {
       "path": "/api/cron/sync-users",
-      "schedule": "0 13 * * *"
+      "schedule": "0 21 * * *"
     },
     {
       "path": "/api/cron/sync-products",
-      "schedule": "0 14 * * *"
+      "schedule": "0 22 * * *"
     }
   ]
 }

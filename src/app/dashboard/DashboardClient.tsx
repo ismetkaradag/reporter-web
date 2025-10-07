@@ -160,7 +160,7 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
         </div>
 
         {/* Ana İstatistikler */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6 mb-6">
           <StatCard
             title="Toplam Sipariş Adedi"
             value={stats.totalOrders}
@@ -184,10 +184,6 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
             icon="💰"
             colorClass="bg-purple-500"
           />
-        </div>
-
-        {/* İkincil İstatistikler */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <StatCard
             title="Ödemesi Alınan ve İptal Edilen Sipariş Adedi"
             value={stats.cancelledOrders}
