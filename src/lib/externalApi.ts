@@ -72,7 +72,7 @@ export async function fetchOrdersPage(
     endDate: null,
     inOrderStatusIds: [],
     notInOrderStatusIds: [],
-    inPaymentStatusIds: [],
+    inPaymentStatusIds: [30],
     notInPaymentStatusIds: [],
     inShippingStatusIds: [],
     notInShippingStatusIds: [],
