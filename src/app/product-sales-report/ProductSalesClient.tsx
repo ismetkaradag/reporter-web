@@ -59,21 +59,41 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
     return orders.filter(isSuccessfulOrder);
   }, [orders]);
 
-  // SKU -> Stock Quantity mapping oluştur (combinations'dan)
-  const skuToStockQuantity = useMemo(() => {
-    const map = new Map<string, number>();
+  // SKU -> Product Info mapping oluştur (combinations'dan)
+  const skuToProductInfo = useMemo(() => {
+    const map = new Map<string, {
+      productName: string;
+      attributeInfo: string;
+      stockQuantity: number;
+    }>();
 
     products.forEach((product) => {
       // Ana ürün SKU'sunu da ekle
-      if (product.sku) {
-        map.set(product.sku, product.stock_quantity || 0);
+      if (product.sku && product.name) {
+        map.set(product.sku, {
+          productName: product.name,
+          attributeInfo: '-',
+          stockQuantity: product.stock_quantity || 0,
+        });
       }
 
       // Combinations'daki SKU'ları ekle
-      if (product.combinations && Array.isArray(product.combinations)) {
+      if (product.combinations && Array.isArray(product.combinations) && product.name) {
         product.combinations.forEach((combination: any) => {
           if (combination.sku) {
-            map.set(combination.sku, combination.stockQuantity || 0);
+            // Combination attributes'larını formatla
+            let attributeInfo = '-';
+            if (combination.attributes && Array.isArray(combination.attributes)) {
+              attributeInfo = combination.attributes
+                .map((attr: any) => `${attr.name}: ${attr.value}`)
+                .join(', ');
+            }
+
+            map.set(combination.sku, {
+              productName: product.name,
+              attributeInfo,
+              stockQuantity: combination.stockQuantity || 0,
+            });
           }
         });
       }
@@ -120,9 +140,18 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
           const subProducts = parseSetProducts(item.attributeInfo);
 
           subProducts.forEach((subProduct) => {
+            // Set içindeki ürünün SKU'sunu bulmaya çalış
             const sku = productNameToSku.get(subProduct.name.trim()) || 'UNKNOWN';
-            const stockQuantity = skuToStockQuantity.get(sku) || 0;
-            const key = `${sku}|||${subProduct.name}|||${subProduct.attribute}`;
+
+            // SKU ile products tablosundan ürün bilgilerini al
+            const productInfo = skuToProductInfo.get(sku);
+
+            // Eğer products tablosunda bulunduysa oradan al, bulunamadıysa set item'dan al
+            const productName = productInfo?.productName || subProduct.name;
+            const attributeInfo = productInfo?.attributeInfo || subProduct.attribute;
+            const stockQuantity = productInfo?.stockQuantity || 0;
+
+            const key = `${sku}|||${productName}|||${attributeInfo}`;
 
             if (productMap.has(key)) {
               const existing = productMap.get(key)!;
@@ -131,8 +160,8 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
             } else {
               productMap.set(key, {
                 sku,
-                productName: subProduct.name,
-                attributeInfo: subProduct.attribute,
+                productName,
+                attributeInfo,
                 individualSales: 0,
                 setBundleSales: quantity,
                 totalSales: quantity,
@@ -143,9 +172,15 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
         } else {
           // Normal tekil ürün
           const sku = item.sku || 'UNKNOWN';
-          const productName = item.productName || 'Bilinmeyen Ürün';
-          const attributeInfo = item.attributeInfo || '-';
-          const stockQuantity = skuToStockQuantity.get(sku) || 0;
+
+          // SKU ile products tablosundan ürün bilgilerini al
+          const productInfo = skuToProductInfo.get(sku);
+
+          // Eğer products tablosunda bulunduysa oradan al, bulunamadıysa order item'dan al
+          const productName = productInfo?.productName || item.productName || 'Bilinmeyen Ürün';
+          const attributeInfo = productInfo?.attributeInfo || item.attributeInfo || '-';
+          const stockQuantity = productInfo?.stockQuantity || 0;
+
           const key = `${sku}|||${productName}|||${attributeInfo}`;
 
           if (productMap.has(key)) {
@@ -168,7 +203,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
     });
 
     return Array.from(productMap.values());
-  }, [successfulOrders, selectedCampuses, skuToStockQuantity]);
+  }, [successfulOrders, selectedCampuses, skuToProductInfo]);
 
   // Ürün bazlı gruplama (aynı productName'e göre)
   const productBasedSales = useMemo(() => {
