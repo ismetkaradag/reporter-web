@@ -22,7 +22,7 @@ interface ProductSale {
 }
 
 // Set ürünlerinin attributeInfo'sunu parse et
-function parseSetProducts(attributeInfo: string): Array<{ name: string; attribute: string }> {
+function parseSetProducts(attributeInfo: string): Array<{ name: string; attribute: string; attributeValue: string }> {
   // <br /> ile ayrılmış satırları al
   const lines = attributeInfo
     .split('<br />')
@@ -34,10 +34,19 @@ function parseSetProducts(attributeInfo: string): Array<{ name: string; attribut
   // Her 3 satır bir ürünü temsil eder: Ürün Adı, Özellik (Beden), Fiyat
   for (let i = 0; i < lines.length; i += 3) {
     if (i + 1 < lines.length) {
-      // i: Ürün Adı, i+1: Özellik
+      // i: Ürün Adı, i+1: Özellik (örn: "Beden: M")
+      const attributeLine = lines[i + 1];
+
+      // "Beden: M" -> "M" çıkar (: ve boşluktan sonraki kısım)
+      let attributeValue = '';
+      if (attributeLine.includes(':')) {
+        attributeValue = attributeLine.split(':')[1].trim();
+      }
+
       products.push({
         name: lines[i],
-        attribute: lines[i + 1],
+        attribute: attributeLine,
+        attributeValue,
       });
     }
   }
@@ -102,6 +111,32 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
     return map;
   }, [products]);
 
+  // ProductName + AttributeValue -> Combination SKU mapping (set ürünleri için)
+  const productNameAndAttributeToSku = useMemo(() => {
+    const map = new Map<string, string>();
+
+    products.forEach((product) => {
+      if (!product.name || !product.combinations) return;
+
+      // Her combination için productName + attributeValue -> SKU mapping
+      if (Array.isArray(product.combinations)) {
+        product.combinations.forEach((combination: any) => {
+          if (!combination.sku || !combination.attributes) return;
+
+          // Her attribute value için mapping oluştur
+          combination.attributes.forEach((attr: any) => {
+            if (attr.value) {
+              const key = `${product.name.trim()}|||${attr.value.trim()}`;
+              map.set(key, combination.sku);
+            }
+          });
+        });
+      }
+    });
+
+    return map;
+  }, [products]);
+
   // Ürün satışlarını hesapla
   const productSales = useMemo(() => {
     // Kampüs filtresi uygula
@@ -112,18 +147,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
       );
     }
 
-    // 1. ProductName -> SKU mapping oluştur (tüm siparişlerden)
-    const productNameToSku = new Map<string, string>();
-    successfulOrders.forEach((order) => {
-      if (!order.items || !Array.isArray(order.items)) return;
-      order.items.forEach((item: any) => {
-        if (item.productName && item.sku) {
-          productNameToSku.set(item.productName.trim(), item.sku);
-        }
-      });
-    });
-
-    // 2. Ürünleri topla
+    // Ürünleri topla
     const productMap = new Map<string, ProductSale>();
 
     filteredOrders.forEach((order) => {
@@ -140,8 +164,9 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
           const subProducts = parseSetProducts(item.attributeInfo);
 
           subProducts.forEach((subProduct) => {
-            // Set içindeki ürünün SKU'sunu bulmaya çalış
-            const sku = productNameToSku.get(subProduct.name.trim()) || 'UNKNOWN';
+            // ProductName + AttributeValue ile combination SKU'sunu bul
+            const lookupKey = `${subProduct.name.trim()}|||${subProduct.attributeValue.trim()}`;
+            const sku = productNameAndAttributeToSku.get(lookupKey) || 'UNKNOWN';
 
             // SKU ile products tablosundan ürün bilgilerini al
             const productInfo = skuToProductInfo.get(sku);
@@ -203,7 +228,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
     });
 
     return Array.from(productMap.values());
-  }, [successfulOrders, selectedCampuses, skuToProductInfo]);
+  }, [successfulOrders, selectedCampuses, skuToProductInfo, productNameAndAttributeToSku]);
 
   // Ürün bazlı gruplama (aynı productName'e göre)
   const productBasedSales = useMemo(() => {
