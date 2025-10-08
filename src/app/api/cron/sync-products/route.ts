@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAllProducts } from '@/lib/externalApi';
+import { fetchProductsPage } from '@/lib/externalApi';
 import { syncProductsToSupabase } from '@/lib/supabaseOperations';
 
 /**
@@ -20,35 +20,59 @@ export async function GET(request: NextRequest) {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    console.log('🚀 Product sync başlatıldı...');
+    // Sayfa numarasını al (default: 1)
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+
+    console.log(`🚀 Products sync başlatıldı - Sayfa ${page}`);
     const startTime = Date.now();
 
-    // Tüm ürünleri API'den çek
-    const products = await fetchAllProducts((current, total) => {
-      console.log(`📥 Product sayfa ${current}/${total} çekiliyor...`);
-    });
+    // Tek sayfa çek
+    const response = await fetchProductsPage(page, 100);
+    const products = response.data;
 
-    console.log(`✅ ${products.length} ürün API'den çekildi`);
+    console.log(`✅ Sayfa ${page}/${response.totalPages} - ${products.length} ürün çekildi`);
 
     // Supabase'e senkronize et
     const result = await syncProductsToSupabase(products);
 
-    const endTime = Date.now();
-    const duration = ((endTime - startTime) / 1000).toFixed(2);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-    const response = {
+    // Sonraki sayfa varsa, 10 saniye sonra kendini tetikle
+    if (response.hasNextPage) {
+      const nextPage = page + 1;
+      console.log(`⏭️  Sonraki sayfa (${nextPage}) 10 saniye içinde tetiklenecek...`);
+
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000';
+
+      setTimeout(() => {
+        fetch(`${baseUrl}/api/cron/sync-products?page=${nextPage}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': authHeader || `Bearer ${process.env.SYNC_TOKEN}`,
+          },
+        }).catch(err => console.error(`❌ Sayfa ${nextPage} tetikleme hatası:`, err));
+      }, 10000);
+    }
+
+    const responseData = {
       success: true,
-      message: 'Product sync completed',
+      message: `Sayfa ${page} senkronize edildi`,
       stats: {
-        totalProducts: products.length,
+        currentPage: page,
+        totalPages: response.totalPages,
+        productsInPage: products.length,
         failed: result.failed,
         duration: `${duration}s`,
+        hasNextPage: response.hasNextPage,
       },
     };
 
-    console.log('✅ Product sync tamamlandı:', response.stats);
+    console.log('✅ Product sync tamamlandı:', responseData.stats);
 
-    return NextResponse.json(response);
+    return NextResponse.json(responseData);
   } catch (error: any) {
     console.error('❌ Product sync hatası:', error);
     return NextResponse.json(
@@ -61,5 +85,5 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Vercel timeout: 10 dakika
-export const maxDuration = 600;
+// Vercel timeout: 60 saniye (Hobby plan)
+export const maxDuration = 60;

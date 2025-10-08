@@ -232,7 +232,7 @@ interface CustomerListResponse {
 /**
  * Belirli bir sayfadaki customer'ları çek
  */
-async function fetchCustomersPage(
+export async function fetchCustomersPage(
   pageIndex: number = 1,
   pageSize: number = 100
 ): Promise<CustomerListResponse> {
@@ -352,7 +352,7 @@ interface ProductListResponse {
 /**
  * Belirli bir sayfadaki ürünleri çek
  */
-async function fetchProductsPage(
+export async function fetchProductsPage(
   pageIndex: number = 1,
   pageSize: number = 100
 ): Promise<ProductListResponse> {
