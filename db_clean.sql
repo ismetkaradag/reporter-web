@@ -212,7 +212,34 @@ CREATE INDEX idx_products_published ON products(published) WHERE published = TRU
 CREATE INDEX idx_products_name ON products USING gin(to_tsvector('turkish', name));
 
 -- ================================================
--- 5. FONKSIYONLAR
+-- 5. SYNC TASKS TABLOSU
+-- ================================================
+-- Ürün/sipariş/müşteri senkronizasyon işlemlerini
+-- task bazlı yönetmek için kullanılır.
+-- Her task 5 sayfayı gruplar halinde işler.
+
+CREATE TABLE IF NOT EXISTS sync_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sync_type TEXT NOT NULL CHECK (sync_type IN ('orders', 'users', 'products')),
+  start_page INTEGER NOT NULL,
+  end_page INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  total_pages INTEGER,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  CONSTRAINT valid_page_range CHECK (start_page > 0 AND end_page >= start_page)
+);
+
+-- Sync tasks indexler
+CREATE INDEX IF NOT EXISTS idx_sync_tasks_status ON sync_tasks(status);
+CREATE INDEX IF NOT EXISTS idx_sync_tasks_sync_type ON sync_tasks(sync_type);
+CREATE INDEX IF NOT EXISTS idx_sync_tasks_created_at ON sync_tasks(created_at);
+CREATE INDEX IF NOT EXISTS idx_sync_tasks_type_status ON sync_tasks(sync_type, status);
+
+-- ================================================
+-- 6. FONKSIYONLAR
 -- ================================================
 
 -- Net ciro hesaplama fonksiyonu

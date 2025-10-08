@@ -432,3 +432,27 @@ export interface Product {
   specifications: any; // JSONB - ProductSpecification[]
   synced_at: string | null;
 }
+
+// ================================================
+// SYNC TASKS TYPES
+// ================================================
+
+// Sync task tipi
+export type SyncType = 'orders' | 'users' | 'products';
+
+// Sync task durumu
+export type SyncTaskStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+// Supabase'deki sync_tasks tablosu
+export interface SyncTask {
+  id: string;
+  sync_type: SyncType;
+  start_page: number;
+  end_page: number;
+  status: SyncTaskStatus;
+  total_pages: number | null;
+  error_message: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
