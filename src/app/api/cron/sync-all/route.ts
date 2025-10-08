@@ -338,6 +338,3 @@ async function processTask(task: SyncTask) {
     totalFailed,
   };
 }
-
-// Vercel timeout: 60 saniye (Hobby plan)
-export const maxDuration = 60;
