@@ -33,13 +33,18 @@ export async function GET(request: NextRequest) {
 
     // SYNC_DATETIME kontrolü (örn: "21:00")
     const syncDatetime = process.env.SYNC_DATETIME || '21:00';
-    const shouldCreateTasks = await checkShouldCreateTasks(syncDatetime);
+    const shouldCreateTasks = checkShouldCreateTasks(syncDatetime);
 
-    console.log(`🔄 Sync-all cron çalıştı - SYNC_DATETIME: ${syncDatetime}, Şu an: ${new Date().toLocaleTimeString('tr-TR')}`);
+    const now = new Date();
+    console.log(`🔄 Sync-all cron çalıştı`);
+    console.log(`   SYNC_DATETIME: ${syncDatetime}`);
+    console.log(`   Şu an: ${now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} (${now.getHours()}:${now.getMinutes()})`);
+    console.log(`   shouldCreateTasks: ${shouldCreateTasks}`);
 
     if (shouldCreateTasks) {
       // Bugün task oluşturulmuş mu kontrol et
       const tasksCreatedToday = await checkTasksCreatedToday(supabase);
+      console.log(`   tasksCreatedToday: ${tasksCreatedToday}`);
 
       if (!tasksCreatedToday) {
         console.log('📝 Yeni tasklar oluşturuluyor...');
@@ -51,7 +56,11 @@ export async function GET(request: NextRequest) {
           tasksCreated: createdTasks.length,
           tasks: createdTasks,
         });
+      } else {
+        console.log('ℹ️  Bugün tasklar zaten oluşturulmuş, pending tasklar işleniyor...');
       }
+    } else {
+      console.log(`ℹ️  Henüz SYNC_DATETIME'a ulaşılmadı, bekleniyor...`);
     }
 
     // Pending taskları işle
@@ -78,13 +87,28 @@ export async function GET(request: NextRequest) {
 
 /**
  * Şu anki saat SYNC_DATETIME'dan sonra mı kontrol et
+ * Desteklenen formatlar: "21:00", "21.00", "9:30", "09:30"
  */
 function checkShouldCreateTasks(syncDatetime: string): boolean {
   const now = new Date();
-  const [targetHour, targetMinute] = syncDatetime.split(':').map(Number);
+
+  // Hem ":" hem "." formatını destekle
+  const separator = syncDatetime.includes(':') ? ':' : '.';
+  const [targetHourStr, targetMinuteStr] = syncDatetime.split(separator);
+
+  const targetHour = parseInt(targetHourStr, 10);
+  const targetMinute = parseInt(targetMinuteStr || '0', 10);
+
+  // Geçersiz format kontrolü
+  if (isNaN(targetHour) || isNaN(targetMinute)) {
+    console.error(`❌ Geçersiz SYNC_DATETIME formatı: "${syncDatetime}". Örnek: "21:00" veya "21.00"`);
+    return false;
+  }
 
   const currentHour = now.getHours();
   const currentMinute = now.getMinutes();
+
+  console.log(`   Parse edildi: Hedef=${targetHour}:${targetMinute}, Şu an=${currentHour}:${currentMinute}`);
 
   // Hedef saate eşit veya sonrasındaysa true
   if (currentHour > targetHour) return true;
@@ -101,13 +125,18 @@ async function checkTasksCreatedToday(supabase: any): Promise<boolean> {
 
   const { data, error } = await supabase
     .from('sync_tasks')
-    .select('id')
+    .select('id, sync_type, created_at')
     .gte('created_at', `${today}T00:00:00`)
-    .limit(1);
+    .limit(10);
 
   if (error) {
-    console.error('Task kontrol hatası:', error);
+    console.error('   ❌ Task kontrol hatası:', error);
     return false;
+  }
+
+  console.log(`   Bugün oluşturulan task sayısı: ${data?.length || 0}`);
+  if (data && data.length > 0) {
+    console.log(`   İlk task: ${data[0].sync_type} - ${data[0].created_at}`);
   }
 
   return data && data.length > 0;
