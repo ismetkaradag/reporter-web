@@ -18,6 +18,7 @@ const menuItems: MenuItem[] = [
   { name: 'Kampüs Durum Raporu', href: '/campus-status-report', icon: '📋' },
   { name: 'Ürün Stok-Satış Raporu', href: '/product-sales-report', icon: '🛍️' },
   { name: 'Satış Oranları Raporu', href: '/sales-rates-report', icon: '📈' },
+  { name: 'Rapor Gruplandırma', href: '/report-groups', icon: '📁' },
 ];
 
 export default function Sidebar() {

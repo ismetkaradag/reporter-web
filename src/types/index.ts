@@ -456,3 +456,26 @@ export interface SyncTask {
   started_at: string | null;
   completed_at: string | null;
 }
+
+// ================================================
+// REPORT GROUPS TYPES
+// ================================================
+
+// Rapor grubu
+export interface ReportGroup {
+  id: number;
+  name: string;
+  description: string | null;
+  product_skus: string[];
+  color: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Rapor grubu oluşturma/güncelleme için
+export interface ReportGroupInput {
+  name: string;
+  description?: string;
+  product_skus: string[];
+  color?: string;
+}

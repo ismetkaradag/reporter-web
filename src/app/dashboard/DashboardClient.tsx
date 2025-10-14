@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import type { Order } from '@/types';
+import { useState, useMemo, useEffect } from 'react';
+import type { Order, ReportGroup } from '@/types';
 import StatCard from '@/components/StatCard';
 import CampusStatsTable from '@/components/CampusStatsTable';
 import OrderHeatmap from '@/components/OrderHeatmap';
@@ -19,6 +19,7 @@ import {
   getAllTimeRange,
 } from '@/utils/dateUtils';
 import { getAllCampuses } from '@/utils/campusUtils';
+import { calculateReportGroupStats } from '@/utils/reportGroupStats';
 
 interface DashboardClientProps {
   orders: Order[];
@@ -29,8 +30,26 @@ type DateRangeType = 'today' | 'yesterday' | 'week' | 'month' | 'all';
 export default function DashboardClient({ orders }: DashboardClientProps) {
   const [dateRange, setDateRange] = useState<DateRangeType>('all');
   const [selectedCampus, setSelectedCampus] = useState<string>('all');
+  const [reportGroups, setReportGroups] = useState<ReportGroup[]>([]);
 
   const campuses = useMemo(() => getAllCampuses(), []);
+
+  // Rapor gruplarını yükle
+  useEffect(() => {
+    const loadReportGroups = async () => {
+      try {
+        const response = await fetch('/api/report-groups');
+        const result = await response.json();
+        if (result.data) {
+          setReportGroups(result.data);
+        }
+      } catch (error) {
+        console.error('Rapor grupları yüklenemedi:', error);
+      }
+    };
+
+    loadReportGroups();
+  }, []);
 
   // Filtrelenmiş siparişler
   const filteredOrders = useMemo(() => {
@@ -67,6 +86,10 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
   // İstatistikler
   const stats = useMemo(() => calculateDashboardStats(filteredOrders), [filteredOrders]);
   const campusStats = useMemo(() => calculateCampusStats(filteredOrders), [filteredOrders]);
+  const groupStats = useMemo(
+    () => calculateReportGroupStats(filteredOrders, reportGroups),
+    [filteredOrders, reportGroups]
+  );
 
   // Order_status bazlı dağılım (RT ayrımı ile)
   const statusDistribution = useMemo(() => {
@@ -265,6 +288,54 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
             })}
           </div>
         </div>
+
+        {/* Rapor Grup İstatistikleri */}
+        {groupStats.length > 0 && (
+          <div className="mb-6">
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Ürün Grupları İstatistikleri
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {groupStats.map((groupStat) => (
+                  <div
+                    key={groupStat.groupId}
+                    className="bg-white rounded-lg shadow-md p-4 border-l-4 hover:shadow-lg transition"
+                    style={{ borderLeftColor: groupStat.groupColor || '#3B82F6' }}
+                  >
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3">
+                      {groupStat.groupName}
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-600">Ciro:</span>
+                        <span className="text-sm font-bold text-green-600">
+                          {new Intl.NumberFormat('tr-TR', {
+                            style: 'currency',
+                            currency: 'TRY',
+                          }).format(groupStat.revenue)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-600">Sipariş:</span>
+                        <span className="text-sm font-semibold text-blue-600">
+                          {groupStat.orderCount}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-600">İptal:</span>
+                        <span className="text-sm font-semibold text-red-600">
+                          {groupStat.cancelledCount}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Kampüs İstatistikleri */}
         <div className="mb-6">
           <CampusStatsTable stats={campusStats} />

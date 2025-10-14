@@ -29,6 +29,7 @@ async function fetchOrders(): Promise<Order[]> {
         payment_status,
         created_on,
         order_total,
+        items,
         payment_method_additional_fee_incl_tax,
         order_sub_total_discount_incl_tax,
         total_item_discount_amount,

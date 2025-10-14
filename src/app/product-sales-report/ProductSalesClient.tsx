@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import type { Order, Product } from '@/types';
+import { useState, useMemo, useEffect } from 'react';
+import type { Order, Product, ReportGroup } from '@/types';
 import * as XLSX from 'xlsx';
 import { isSuccessfulOrder } from '@/utils/orderUtils';
 
@@ -54,7 +54,7 @@ function parseSetProducts(attributeInfo: string): Array<{ name: string; attribut
   return products;
 }
 
-type ViewMode = 'combination' | 'product';
+type ViewMode = 'combination' | 'product' | 'group';
 type SortBy = 'totalSales' | 'stockQuantity' | 'name';
 
 export default function ProductSalesClient({ orders, products, campuses }: ProductSalesClientProps) {
@@ -62,6 +62,25 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('combination');
   const [sortBy, setSortBy] = useState<SortBy>('totalSales');
+  const [reportGroups, setReportGroups] = useState<ReportGroup[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+
+  // Rapor gruplarını yükle
+  useEffect(() => {
+    const loadReportGroups = async () => {
+      try {
+        const response = await fetch('/api/report-groups');
+        const result = await response.json();
+        if (result.data) {
+          setReportGroups(result.data);
+        }
+      } catch (error) {
+        console.error('Rapor grupları yüklenemedi:', error);
+      }
+    };
+
+    loadReportGroups();
+  }, []);
 
   // Başarılı siparişleri filtrele
   const successfulOrders = useMemo(() => {
@@ -271,8 +290,39 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
     return Array.from(productMap.values());
   }, [productSales, products]);
 
+  // Grup bazlı satışlar
+  const groupBasedSales = useMemo(() => {
+    if (reportGroups.length === 0) return [];
+
+    return reportGroups.map((group) => {
+      // Grup SKU'larını Set'e çevir
+      const groupSkus = new Set(group.product_skus);
+
+      // Bu gruptaki SKU'ların satışlarını topla
+      const groupProducts = productSales.filter((sale) => groupSkus.has(sale.sku));
+
+      const totalIndividualSales = groupProducts.reduce((sum, p) => sum + p.individualSales, 0);
+      const totalSetBundleSales = groupProducts.reduce((sum, p) => sum + p.setBundleSales, 0);
+      const totalSales = groupProducts.reduce((sum, p) => sum + p.totalSales, 0);
+      const totalStock = groupProducts.reduce((sum, p) => sum + p.stockQuantity, 0);
+
+      return {
+        group,
+        products: groupProducts,
+        totalIndividualSales,
+        totalSetBundleSales,
+        totalSales,
+        totalStock,
+      };
+    });
+  }, [reportGroups, productSales]);
+
   // View mode'a göre hangi data'yı kullanacağımıza karar ver
-  const displayData = viewMode === 'combination' ? productSales : productBasedSales;
+  const displayData = viewMode === 'group'
+    ? [] // Grup görünümü için ayrı render
+    : viewMode === 'combination'
+      ? productSales
+      : productBasedSales;
 
   // Arama filtresi uygula
   const searchFilteredProducts = useMemo(() => {
@@ -322,45 +372,110 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
     );
   };
 
+  // Grup açma/kapama toggle
+  const toggleGroup = (groupId: number) => {
+    setExpandedGroups((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId);
+      } else {
+        newSet.add(groupId);
+      }
+      return newSet;
+    });
+  };
+
   // Excel export
   const exportToExcel = () => {
-    const excelData = filteredProducts.map((product) => {
-      const baseData: any = {
-        'SKU': product.sku,
-        'Ürün Adı': product.productName,
-      };
+    let excelData: any[] = [];
 
-      // Kombinasyon bazlı görünümde özellik sütunu ekle
-      if (viewMode === 'combination') {
-        baseData['Özellik'] = product.attributeInfo;
-      }
+    if (viewMode === 'group') {
+      // Grup bazlı export
+      groupBasedSales
+        .sort((a, b) => b.totalSales - a.totalSales)
+        .forEach((groupData) => {
+          // Grup başlığı satırı
+          excelData.push({
+            'Grup': groupData.group.name,
+            'Açıklama': groupData.group.description || '',
+            'Toplam Stok': groupData.totalStock,
+            'Toplam Tekil': groupData.totalIndividualSales,
+            'Toplam Set': groupData.totalSetBundleSales,
+            'Toplam Satış': groupData.totalSales,
+          });
 
-      baseData['Stok Miktarı'] = product.stockQuantity;
-      baseData['Tekil Satış'] = product.individualSales;
-      baseData['Set İçi Satış'] = product.setBundleSales;
-      baseData['Toplam Satış'] = product.totalSales;
+          // Grup içindeki ürünler
+          groupData.products.forEach((product) => {
+            excelData.push({
+              'Grup': '', // Boş bırak
+              'SKU': product.sku,
+              'Ürün Adı': product.productName,
+              'Özellik': product.attributeInfo,
+              'Stok': product.stockQuantity,
+              'Tekil': product.individualSales,
+              'Set': product.setBundleSales,
+              'Toplam': product.totalSales,
+            });
+          });
 
-      return baseData;
-    });
+          // Boş satır (gruplar arası ayırıcı)
+          excelData.push({});
+        });
+    } else {
+      // Normal export (combination veya product view)
+      excelData = filteredProducts.map((product) => {
+        const baseData: any = {
+          'SKU': product.sku,
+          'Ürün Adı': product.productName,
+        };
+
+        // Kombinasyon bazlı görünümde özellik sütunu ekle
+        if (viewMode === 'combination') {
+          baseData['Özellik'] = product.attributeInfo;
+        }
+
+        baseData['Stok Miktarı'] = product.stockQuantity;
+        baseData['Tekil Satış'] = product.individualSales;
+        baseData['Set İçi Satış'] = product.setBundleSales;
+        baseData['Toplam Satış'] = product.totalSales;
+
+        return baseData;
+      });
+    }
 
     const ws = XLSX.utils.json_to_sheet(excelData);
 
     // Kolon genişlikleri
-    const cols = [
-      { wch: 15 }, // SKU
-      { wch: 40 }, // Ürün Adı
-    ];
+    let cols: any[] = [];
 
-    if (viewMode === 'combination') {
-      cols.push({ wch: 30 }); // Özellik
+    if (viewMode === 'group') {
+      cols = [
+        { wch: 30 }, // Grup
+        { wch: 15 }, // SKU veya Açıklama
+        { wch: 40 }, // Ürün Adı veya Toplam Stok
+        { wch: 30 }, // Özellik veya Toplam Tekil
+        { wch: 12 }, // Stok veya Toplam Set
+        { wch: 12 }, // Tekil veya Toplam Satış
+        { wch: 12 }, // Set
+        { wch: 12 }, // Toplam
+      ];
+    } else {
+      cols = [
+        { wch: 15 }, // SKU
+        { wch: 40 }, // Ürün Adı
+      ];
+
+      if (viewMode === 'combination') {
+        cols.push({ wch: 30 }); // Özellik
+      }
+
+      cols.push(
+        { wch: 12 }, // Stok Miktarı
+        { wch: 12 }, // Tekil Satış
+        { wch: 12 }, // Set İçi Satış
+        { wch: 12 }  // Toplam Satış
+      );
     }
-
-    cols.push(
-      { wch: 12 }, // Stok Miktarı
-      { wch: 12 }, // Tekil Satış
-      { wch: 12 }, // Set İçi Satış
-      { wch: 12 }  // Toplam Satış
-    );
 
     ws['!cols'] = cols;
 
@@ -402,6 +517,16 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
                 }`}
               >
                 Ürün Bazlı
+              </button>
+              <button
+                onClick={() => setViewMode('group')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'group'
+                    ? 'bg-white text-blue-600 shadow'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Grup Bazlı
               </button>
             </div>
           </div>
@@ -508,10 +633,107 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
         </button>
       </div>
 
-      {/* Tablo */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+      {/* Tablo veya Grup Görünümü */}
+      {viewMode === 'group' ? (
+        /* Grup Bazlı Görünüm */
+        <div className="space-y-4">
+          {groupBasedSales.length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+              Henüz rapor grubu oluşturulmamış. Rapor Gruplandırma sayfasından grup oluşturabilirsiniz.
+            </div>
+          ) : (
+            groupBasedSales
+              .sort((a, b) => b.totalSales - a.totalSales) // Toplam satışa göre sırala
+              .map((groupData) => (
+                <div
+                  key={groupData.group.id}
+                  className="bg-white rounded-lg shadow border-l-4 overflow-hidden"
+                  style={{ borderLeftColor: groupData.group.color || '#3B82F6' }}
+                >
+                  {/* Grup Başlığı */}
+                  <button
+                    onClick={() => toggleGroup(groupData.group.id)}
+                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition"
+                  >
+                    <div className="flex items-center gap-4">
+                      <span className="text-2xl">{expandedGroups.has(groupData.group.id) ? '▼' : '▶'}</span>
+                      <div className="text-left">
+                        <h3 className="text-lg font-semibold text-gray-900">{groupData.group.name}</h3>
+                        {groupData.group.description && (
+                          <p className="text-sm text-gray-600 mt-0.5">{groupData.group.description}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-6 text-sm">
+                      <div className="text-right">
+                        <div className="text-gray-500">Stok</div>
+                        <div className="font-semibold text-gray-900">{groupData.totalStock}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-gray-500">Tekil</div>
+                        <div className="font-semibold text-blue-600">{groupData.totalIndividualSales}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-gray-500">Set</div>
+                        <div className="font-semibold text-purple-600">{groupData.totalSetBundleSales}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-gray-500">Toplam</div>
+                        <div className="font-bold text-green-600">{groupData.totalSales}</div>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Grup İçeriği (Açılır/Kapanır) */}
+                  {expandedGroups.has(groupData.group.id) && (
+                    <div className="border-t border-gray-200">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ürün Adı</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Özellik</th>
+                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Stok</th>
+                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Tekil</th>
+                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Set</th>
+                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Toplam</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {groupData.products.length === 0 ? (
+                              <tr>
+                                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                                  Bu grupta henüz satış verisi yok
+                                </td>
+                              </tr>
+                            ) : (
+                              groupData.products.map((product, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50">
+                                  <td className="px-6 py-3 text-sm text-gray-600 font-mono">{product.sku}</td>
+                                  <td className="px-6 py-3 text-sm text-gray-900">{product.productName}</td>
+                                  <td className="px-6 py-3 text-sm text-gray-600">{product.attributeInfo}</td>
+                                  <td className="px-6 py-3 text-sm text-gray-900 text-right">{product.stockQuantity}</td>
+                                  <td className="px-6 py-3 text-sm text-blue-600 text-right">{product.individualSales}</td>
+                                  <td className="px-6 py-3 text-sm text-purple-600 text-right">{product.setBundleSales}</td>
+                                  <td className="px-6 py-3 text-sm text-green-600 text-right font-semibold">{product.totalSales}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+          )}
+        </div>
+      ) : (
+        /* Normal Tablo Görünümü */
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -581,6 +803,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
           </table>
         </div>
       </div>
+      )}
 
       {/* Footer bilgi */}
       <div className="mt-4 text-sm text-gray-600 text-center">
