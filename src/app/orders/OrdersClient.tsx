@@ -38,6 +38,10 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
       'Kullanıcı': order.customer_info || '-',
       'Sipariş Tarihi': formatDateTime(order.created_on),
       'Toplam': calculateNetRevenue(order),
+      'Vade Farkı': order.payment_method_additional_fee_incl_tax || 0,
+      'İndirim': (order.order_sub_total_discount_incl_tax || 0) + (order.total_item_discount_amount || 0),
+      'Para Puan Kullanımı': order.redeemed_reward_points_amount || 0,
+      'Brüt Toplam': order.order_total || 0,
     }));
 
     const wb = XLSX.utils.book_new();

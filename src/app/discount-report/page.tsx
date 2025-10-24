@@ -1,10 +1,12 @@
 import { getServiceRoleClient } from '@/lib/supabase';
-import type { Order, Product } from '@/types';
+import type { Order } from '@/types';
 import MainLayout from '@/components/MainLayout';
-import ProductSalesClient from './ProductSalesClient';
-import { getAllCampuses } from '@/utils/campusUtils';
+import DiscountReportClient from './DiscountReportClient';
 import { filterOrdersForDashboard } from '@/utils/orderUtils';
 
+/**
+ * Supabase'den tüm siparişleri çek
+ */
 async function fetchOrders(): Promise<Order[]> {
   const supabase = getServiceRoleClient();
   const allOrders: Order[] = [];
@@ -14,7 +16,7 @@ async function fetchOrders(): Promise<Order[]> {
   while (true) {
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
+      .select('id, custom_order_number, customer_id, customer_info, customer_email, campus, order_status, payment_status, order_sub_total_discount_incl_tax, total_item_discount_amount, order_total, payment_method_additional_fee_incl_tax, redeemed_reward_points_amount, created_on')
       .order('created_on', { ascending: false })
       .range(from, from + pageSize - 1);
 
@@ -30,33 +32,21 @@ async function fetchOrders(): Promise<Order[]> {
     if (data.length < pageSize) break;
     from += pageSize;
   }
+
   return allOrders;
 }
 
-async function fetchProducts(): Promise<Product[]> {
-  const supabase = getServiceRoleClient();
-  const { data, error } = await supabase
-    .from('products')
-    .select('id, name, sku, stock_quantity, combinations, price');
-
-
-  if (error) {
-    console.error('Error fetching products:', error);
-    return [];
-  }
-
-  return (data as Product[]) || [];
-}
-
-export default async function ProductSalesReportPage() {
+export default async function DiscountReportPage() {
   const allOrders = await fetchOrders();
+
+  // Başarısız ve onay bekliyor siparişleri filtrele
   const orders = filterOrdersForDashboard(allOrders);
-  const products = await fetchProducts();
-  const campuses = getAllCampuses();
+
+  console.log(`📊 Discount Report: ${orders.length} orders (filtered from ${allOrders.length})`);
 
   return (
     <MainLayout>
-      <ProductSalesClient orders={orders} products={products} campuses={campuses} />
+      <DiscountReportClient orders={orders} />
     </MainLayout>
   );
 }

@@ -333,7 +333,7 @@ export default function ProductLineSalesClient({ orders, customers, reportGroups
           </div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600">Toplam Tutar<p className='text-xs'>(Ürüne yapılan indirimler düşülmüştür)<p>(Siparişe yapılan indirimler düşülmemiştir)</p> </p></div>
+          <div className="text-sm text-gray-600">Toplam Tutar<p className='text-xs'>(Ürüne yapılan indirimler düşülmüştür)<br/>(Siparişe yapılan indirimler düşülmemiştir)</p></div>
           <div className="text-2xl font-bold text-green-600 mt-1">
             {formatCurrency(filteredRows.reduce((sum, row) => sum + row.itemUnitPriceInclTax, 0))}
           </div>

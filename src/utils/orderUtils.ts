@@ -93,7 +93,7 @@ export function hasRewardPointsUsed(order: Order): boolean {
  */
 export function shouldShowInDashboard(order: Order): boolean {
   const status = getOrderStatus(order.order_status, order.payment_status);
-  return status !== 'basarisiz' && status !== 'onay-bekliyor' && !!order.campus;
+  return status !== 'basarisiz' && status !== 'onay-bekliyor';
 }
 
 /**

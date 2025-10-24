@@ -31,6 +31,8 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
   const [dateRange, setDateRange] = useState<DateRangeType>('all');
   const [selectedCampus, setSelectedCampus] = useState<string>('all');
   const [reportGroups, setReportGroups] = useState<ReportGroup[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
 
   const campuses = useMemo(() => getAllCampuses(), []);
 
@@ -50,6 +52,56 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
 
     loadReportGroups();
   }, []);
+
+  // Sync işlemini başlat (Local Full Sync)
+  const handleSync = async () => {
+    if (isSyncing) return;
+
+    setIsSyncing(true);
+    setSyncMessage('🚀 Tüm veriler senkronize ediliyor... (Bu işlem birkaç dakika sürebilir)');
+
+    try {
+      // SYNC_TOKEN ile auth yap
+      const syncToken = process.env.NEXT_PUBLIC_SYNC_TOKEN;
+
+      const response = await fetch('/api/sync/local-sync', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${syncToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        const summary = result.summary || {};
+        setSyncMessage(
+          `✅ Senkronizasyon tamamlandı!\n` +
+          `📦 ${summary.orders || 0} sipariş, ` +
+          `👥 ${summary.customers || 0} müşteri, ` +
+          `🛍️ ${summary.products || 0} ürün sync edildi`
+        );
+
+        // 5 saniye sonra sayfayı yenile
+        setTimeout(() => {
+          window.location.reload();
+        }, 5000);
+      } else {
+        setSyncMessage(`❌ Hata: ${result.error || 'Bilinmeyen hata'}`);
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      setSyncMessage('❌ Senkronizasyon başarısız oldu');
+    } finally {
+      // Hata durumunda da state'i temizle
+      setTimeout(() => {
+        if (syncMessage.includes('❌')) {
+          setIsSyncing(false);
+          setSyncMessage('');
+        }
+      }, 10000);
+    }
+  };
 
   // Filtrelenmiş siparişler
   const filteredOrders = useMemo(() => {
@@ -119,13 +171,43 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
       }, {} as Record<string, { total: number; exchange: number; sales: number }>);
   }, [filteredOrders]);
 
+  const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="px-4 sm:px-6 lg:px-8 py-6 pt-16 lg:pt-6">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">Satış ve sipariş istatistikleri</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-gray-600 mt-1">Satış ve sipariş istatistikleri</p>
+            </div>
+
+            {/* Development Mode Sync Button */}
+            {isDevMode && (
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={handleSync}
+                  disabled={isSyncing}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    isSyncing
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  {isSyncing ? '🔄 Senkronize Ediliyor...' : '🔄 Senkronizasyon Başlat'}
+                </button>
+                {syncMessage && (
+                  <div className={`text-sm whitespace-pre-line ${
+                    syncMessage.includes('✅') ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {syncMessage}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -242,6 +324,7 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
             format="currency"
             icon="🏷️"
             colorClass="bg-purple-500"
+            href="/discount-report"
           />
         </div>
 

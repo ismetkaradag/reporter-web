@@ -19,6 +19,7 @@ interface ProductSale {
   setBundleSales: number;  // Set içi satış adedi
   totalSales: number;      // Toplam satış adedi
   stockQuantity: number;   // Stok miktarı
+  price?: number;          // Birim fiyat (opsiyonel)
 }
 
 // Set ürünlerinin attributeInfo'sunu parse et
@@ -93,6 +94,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
       productName: string;
       attributeInfo: string;
       stockQuantity: number;
+      price: number;
     }>();
 
     products.forEach((product) => {
@@ -102,6 +104,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
           productName: product.name,
           attributeInfo: '-',
           stockQuantity: product.stock_quantity || 0,
+          price: product.price || 0,
         });
       }
 
@@ -121,6 +124,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
               productName: product.name,
               attributeInfo,
               stockQuantity: combination.stockQuantity || 0,
+              price: combination.overriddenPrice || product.price || 0,
             });
           }
         });
@@ -194,6 +198,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
             const productName = productInfo?.productName || subProduct.name;
             const attributeInfo = productInfo?.attributeInfo || subProduct.attribute;
             const stockQuantity = productInfo?.stockQuantity || 0;
+            const price = productInfo?.price || 0;
 
             const key = `${sku}|||${productName}|||${attributeInfo}`;
 
@@ -210,6 +215,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
                 setBundleSales: quantity,
                 totalSales: quantity,
                 stockQuantity,
+                price,
               });
             }
           });
@@ -224,6 +230,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
           const productName = productInfo?.productName || item.productName || 'Bilinmeyen Ürün';
           const attributeInfo = productInfo?.attributeInfo || item.attributeInfo || '-';
           const stockQuantity = productInfo?.stockQuantity || 0;
+          const price = productInfo?.price || 0;
 
           const key = `${sku}|||${productName}|||${attributeInfo}`;
 
@@ -240,6 +247,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
               setBundleSales: 0,
               totalSales: quantity,
               stockQuantity,
+              price,
             });
           }
         }
@@ -266,6 +274,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
         // İlk kez ekleniyorsa, SKU'yu ana ürün SKU'su ile değiştir
         // ProductName'den SKU bul
         let mainSku = sale.sku;
+        let price = sale.price || 0;
 
         // Products listesinden bu ürünün ana SKU'sunu bul (case-insensitive)
         const matchingProduct = products.find(
@@ -273,6 +282,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
         );
         if (matchingProduct && matchingProduct.sku) {
           mainSku = matchingProduct.sku;
+          price = matchingProduct.price || price;
         }
 
         productMap.set(productName, {
@@ -283,6 +293,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
           setBundleSales: sale.setBundleSales,
           totalSales: sale.totalSales,
           stockQuantity: sale.stockQuantity,
+          price,
         });
       }
     });
@@ -438,7 +449,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
         baseData['Tekil Satış'] = product.individualSales;
         baseData['Set İçi Satış'] = product.setBundleSales;
         baseData['Toplam Satış'] = product.totalSales;
-
+        baseData['Birim Fiyat'] = product.price;
         return baseData;
       });
     }
@@ -620,6 +631,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
             {totalStats.totalSales}
           </div>
         </div>
+        
       </div>
 
       {/* Excel Export Button */}
@@ -759,6 +771,9 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Toplam Satış
                 </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Birim Fiyat
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -796,6 +811,10 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
                     <td className="px-6 py-4 text-sm text-green-600 text-right font-bold">
                       {product.totalSales}
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-900 text-right font-mono">
+                      {product.price ? `${product.price.toFixed(2)} ₺` : '-'}
+                    </td>
+                      
                   </tr>
                 ))
               )}

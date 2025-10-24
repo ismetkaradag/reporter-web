@@ -90,7 +90,7 @@ export default async function SalesRatesReportPage() {
   // Başarısız, onay bekliyor ve kampüsü olmayan siparişleri filtrele
   const orders = allOrders.filter(order => {
     const status = getOrderStatus(order.order_status, order.payment_status);
-    return status !== 'basarisiz' && status !== 'onay-bekliyor' && !!order.campus;
+    return status !== 'basarisiz' && status !== 'onay-bekliyor'
   });
 
   return (

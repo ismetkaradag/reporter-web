@@ -64,7 +64,7 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
   // Filtrelenmiş siparişler (başarılı, iptal, iade) - kampüsü olmayan siparişler hariç
   const filteredOrders = useMemo(() => {
     return orders.filter(order =>
-      (isSuccessfulOrder(order) || isCancelledOrder(order) || isRefundedOrder(order)) && !!order.campus
+      (isSuccessfulOrder(order) || isCancelledOrder(order) || isRefundedOrder(order))
     );
   }, [orders]);
 
@@ -99,7 +99,19 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
     const customerOrderSet = new Set<string>(); // campus:customerId
 
     filteredOrders.forEach(order => {
-      if (!order.campus) return;
+      if (!order.campus) {
+        campusMap.set('Bilinmeyen', campusMap.get('Bilinmeyen') || {
+          campus: 'Bilinmeyen',
+          totalRevenue: 0,
+          dailyRevenue: 0,
+          cancelledRevenue: 0,
+          refundedRevenue: 0,
+          orderCount: 0,
+          totalCustomers: 0,
+          customersWithOrders: 0,
+        });
+        order.campus = 'Bilinmeyen';
+      }
 
       const report = campusMap.get(order.campus);
       if (!report) return;

@@ -6,7 +6,7 @@ import {
   isRefundedOrder,
 } from './orderUtils';
 import {
-  getTodayRange,
+  getYesterdayRange,
   getThisWeekRange,
   getThisMonthRange,
   getAllTimeRange,
@@ -14,7 +14,7 @@ import {
 
 export interface CampusSalesStats {
   campus: string;
-  today: {
+  yesterday: {
     sales: number;
     cancelled: number;
     refunded: number;
@@ -84,13 +84,13 @@ export function generateCampusSalesReport(orders: Order[]): CampusSalesStats[] {
 
   campusMap.forEach((campusOrders, campus) => {
     // Tarih aralıkları
-    const todayRange = getTodayRange();
+    const yesterdayRange = getYesterdayRange();
     const weekRange = getThisWeekRange();
     const monthRange = getThisMonthRange();
     const allTimeRange = getAllTimeRange();
 
     // Filtreleme
-    const todayOrders = filterByDateRange(campusOrders, todayRange.start, todayRange.end);
+    const yesterdayOrders = filterByDateRange(campusOrders, yesterdayRange.start, yesterdayRange.end);
     const weekOrders = filterByDateRange(campusOrders, weekRange.start, weekRange.end);
     const monthOrders = filterByDateRange(campusOrders, monthRange.start, monthRange.end);
     const allTimeOrders = filterByDateRange(campusOrders, allTimeRange.start, allTimeRange.end);
@@ -98,7 +98,7 @@ export function generateCampusSalesReport(orders: Order[]): CampusSalesStats[] {
     // İstatistikler
     report.push({
       campus,
-      today: calculateStatsForPeriod(todayOrders),
+      yesterday: calculateStatsForPeriod(yesterdayOrders),
       week: calculateStatsForPeriod(weekOrders),
       month: calculateStatsForPeriod(monthOrders),
       allTime: calculateStatsForPeriod(allTimeOrders),
