@@ -118,12 +118,12 @@ export default function IadeTalepleriClient({
 
   // Unique action ve status değerleri
   const uniqueActions = useMemo(() => {
-    const actions = new Set(returnRequests.map(r => r.return_action).filter(Boolean));
+    const actions = new Set(returnRequests.map(r => r.return_action).filter((a): a is string => Boolean(a)));
     return Array.from(actions).sort();
   }, [returnRequests]);
 
   const uniqueStatuses = useMemo(() => {
-    const statuses = new Set(returnRequests.map(r => r.return_request_status_str).filter(Boolean));
+    const statuses = new Set(returnRequests.map(r => r.return_request_status_str).filter((s): s is string => Boolean(s)));
     return Array.from(statuses).sort();
   }, [returnRequests]);
 
