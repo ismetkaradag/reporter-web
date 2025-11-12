@@ -479,3 +479,220 @@ export interface ReportGroupInput {
   product_skus: string[];
   color?: string;
 }
+
+// ================================================
+// RETURN SYSTEM TYPES (İade Sistemi)
+// ================================================
+
+// API'den gelen iade talebi satır kombinasyonu
+export interface ApiReturnRequestLineCombination {
+  productId: number;
+  name: string;
+  combinationId: number;
+  combinationSku: string;
+  combinationGtin: string;
+  quantity: number;
+}
+
+// API'den gelen iade talebi satırı
+export interface ApiReturnRequestLine {
+  id: number;
+  productId: number;
+  productName: string;
+  quantity: number;
+  fromAttr: string; // İade edilen ürün özellikleri (Beden/Renk)
+  replacementProductName: string; // Değişim ürünü adı (varsa)
+  toAttr: string; // Değişim ürünü özellikleri (varsa)
+  sku: string;
+  price: number; // Fiyat
+  productPrice: number; // Ürün liste fiyatı
+  requestLineCombinations: ApiReturnRequestLineCombination[];
+}
+
+// API'den gelen iade talebi
+export interface ApiReturnRequest {
+  id: number; // Internal API ID
+  customNumber: string; // İade talep numarası (örn: "RT12345")
+  orderId: number; // Sipariş ID
+  customOrderNumber: string; // Sipariş numarası (örn: "BK2508092663")
+  customerId: number; // Müşteri ID
+  customerInfo: string; // Müşteri bilgisi (Ad Soyad)
+  returnReason: string; // İade nedeni
+  returnReasonId: number; // İade nedeni ID
+  returnAction: string; // İade aksiyonu (örn: "Ödeme İadesi", "Değişim", "Para Puan")
+  returnActionId: number; // İade aksiyonu ID (0 = Değişim)
+  customerComments: string; // Müşteri yorumu
+  staffNotes: string; // Personel notu
+  returnRequestStatusId: number; // Durum ID
+  returnRequestStatusStr: string; // Durum metni (örn: "Onaylandı", "Beklemede")
+  createdOn: string; // Oluşturma tarihi (DD.MM.YYYY HH:mm:ss)
+  returnCodeExpireDate: string; // Kod bitiş tarihi
+  returnApprovalDate: string; // Onay tarihi
+  returnWarehouseApprovalDate: string; // Depo onay tarihi
+  returnCreatedOn: string; // İade oluşturma tarihi
+  returnCreatedOnDate: string; // İade oluşturma tarihi (alternatif)
+  returnId: number; // İlişkili iade ID
+  returnCustomNumber: string; // İlişkili iade numarası
+  lines: ApiReturnRequestLine[]; // İade satırları
+}
+
+// İade talepleri listesi API yanıtı
+export interface ReturnRequestListApiResponse {
+  success: boolean;
+  statusCode: number;
+  errors: any[];
+  data: ApiReturnRequest[];
+  pageIndex: number;
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  firstItem: number;
+  lastItem: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
+// Supabase'deki return_requests tablosu
+export interface ReturnRequest {
+  id: number;
+  custom_number: string; // Unique key
+  order_id: number | null;
+  custom_order_number: string | null;
+  customer_id: number | null;
+  customer_info: string | null;
+  return_reason: string | null;
+  return_reason_id: number | null;
+  return_action: string | null;
+  return_action_id: number | null;
+  customer_comments: string | null;
+  staff_notes: string | null;
+  return_request_status_id: number | null;
+  return_request_status_str: string | null;
+  created_on: string | null;
+  return_code_expire_date: string | null;
+  return_approval_date: string | null;
+  return_warehouse_approval_date: string | null;
+  return_created_on: string | null;
+  return_created_on_date: string | null;
+  return_id: number | null;
+  return_custom_number: string | null;
+  lines: any; // JSONB - ApiReturnRequestLine[]
+  from_id: number | null; // API'deki orijinal ID
+  synced_at: string | null;
+  updated_at: string | null;
+}
+
+// İade tutarı hesaplama sonucu
+export interface ReturnRequestWithRefund extends ReturnRequest {
+  refund_amount: number;
+  has_error: boolean;
+  error_message?: string;
+  order_total_amount?: number; // İlgili siparişin toplam tutarı
+}
+
+// API'den gelen iade item'ı
+export interface ApiReturnItem {
+  productId: number;
+  productName: string;
+  quantity: number;
+  sku: string;
+  productPrice: number;
+  subTotalInclTaxValue: number;
+}
+
+// API'den gelen iade
+export interface ApiReturn {
+  id: number; // Internal API ID
+  customReturnNumber: string; // İade numarası (örn: "RET12345")
+  customOrderNumber: string; // Sipariş numarası
+  orderId: number; // Sipariş ID
+  returnReason: string; // İade nedeni
+  returnReasonId: number; // İade nedeni ID
+  returnAction: string; // İade aksiyonu
+  returnActionId: number; // İade aksiyonu ID
+  returnPaymentStatus: string; // Ödeme durumu (örn: "Ödendi", "Ödenmedi", "İptal Edildi")
+  returnPaymentStatusId: number; // Ödeme durumu ID
+  bankAccountNumber: string; // Banka hesap numarası
+  orderShippingInclTaxValue: number; // Kargo ücreti (KDV dahil)
+  paymentMethodAdditionalFeeInclTaxValue: number; // Vade farkı (KDV dahil)
+  customerId: number; // Müşteri ID
+  customerFullName: string; // Müşteri adı soyadı
+  customerIdentityNumber: string; // Müşteri TC kimlik no
+  returnRequestId: number; // İlişkili iade talebi ID
+  returnRequestCustomNumber: string; // İlişkili iade talebi numarası
+  paidDateUtc: string; // Ödeme tarihi
+  items: ApiReturnItem[]; // İade kalemleri
+  createdOn: string; // Oluşturma tarihi (DD.MM.YYYY HH:mm:ss)
+  addReturnNoteDisplayToCustomer: boolean; // Not müşteriye gösterilsin mi
+  addReturnNoteMessage: string; // İade notu mesajı
+  canMarkReturnAsPaid: boolean; // Ödendi olarak işaretlenebilir mi
+}
+
+// İadeler listesi API yanıtı
+export interface ReturnListApiResponse {
+  success: boolean;
+  statusCode: number;
+  errors: any[];
+  data: ApiReturn[];
+  pageIndex: number;
+  pageNumber: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  firstItem: number;
+  lastItem: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
+// Supabase'deki returns tablosu
+export interface Return {
+  id: number;
+  custom_return_number: string; // Unique key
+  custom_order_number: string;
+  order_id: number;
+  return_reason: string | null;
+  return_reason_id: number | null;
+  return_action: string;
+  return_action_id: number;
+  return_payment_status: string;
+  return_payment_status_id: number;
+  bank_account_number: string | null;
+  order_shipping_incl_tax_value: number | null;
+  payment_method_additional_fee_incl_tax_value: number | null;
+  customer_id: number | null;
+  customer_full_name: string | null;
+  customer_identity_number: string | null;
+  return_request_id: number | null;
+  return_request_custom_number: string | null;
+  paid_date_utc: string | null;
+  items: any; // JSONB - ApiReturnItem[]
+  created_on: string | null;
+  add_return_note_display_to_customer: boolean | null;
+  add_return_note_message: string | null;
+  can_mark_return_as_paid: boolean | null;
+  from_id: number | null; // API'deki orijinal ID
+  synced_at: string | null;
+  updated_at: string | null;
+}
+
+// İade tutarı hesaplama sonucu (returns için)
+export interface ReturnWithAmount extends Return {
+  return_amount: number;
+}
+
+// İade özet istatistikleri
+export interface ReturnSummaryStats {
+  status: string; // Durum veya ödeme durumu
+  count: number; // Kayıt sayısı
+  amount: number; // Toplam tutar
+}
+
+// İade özet raporu grubu
+export interface ReturnSummaryGroup {
+  action: string; // Ödeme İadesi, Para Puan, Değişim
+  stats: ReturnSummaryStats[];
+  subtotal_count: number; // İptal/Red hariç toplam sayı
+  subtotal_amount: number; // İptal/Red hariç toplam tutar
+}

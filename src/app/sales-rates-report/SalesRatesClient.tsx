@@ -96,7 +96,10 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
 
     // Siparişleri işle
     const today = new Date().toISOString().split('T')[0];
-    const customerOrderSet = new Set<string>(); // campus:customerId
+    // Kampüs bazlı tüm customer'lar (başarılı + iptal + iade)
+    const campusAllCustomersMap = new Map<string, Set<number>>();
+    // Kampüs bazlı başarılı sipariş veren customer'lar
+    const campusSuccessCustomersMap = new Map<string, Set<number>>();
 
     filteredOrders.forEach(order => {
       if (!order.campus) {
@@ -123,6 +126,14 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
         if (order.created_on.startsWith(today)) {
           report.dailyRevenue += netRevenue;
         }
+
+        // Başarılı sipariş: başarılı customer Set'ine ekle
+        if (order.customer_id) {
+          if (!campusSuccessCustomersMap.has(order.campus)) {
+            campusSuccessCustomersMap.set(order.campus, new Set());
+          }
+          campusSuccessCustomersMap.get(order.campus)!.add(order.customer_id);
+        }
       } else if (isCancelledOrder(order)) {
         report.cancelledRevenue += netRevenue;
       } else if (isRefundedOrder(order)) {
@@ -131,23 +142,27 @@ export default function SalesRatesClient({ orders, customers }: SalesRatesClient
 
       report.orderCount++;
 
+      // Tüm siparişler: toplam customer Set'ine ekle
       if (order.customer_id) {
-        customerOrderSet.add(`${order.campus}:${order.customer_id}`);
+        if (!campusAllCustomersMap.has(order.campus)) {
+          campusAllCustomersMap.set(order.campus, new Set());
+        }
+        campusAllCustomersMap.get(order.campus)!.add(order.customer_id);
       }
     });
 
-    // Müşteri sayılarını hesapla
-    customers.forEach(customer => {
-      const campus = customer.campus_name;
-      if (!campus) return;
-
+    // Her kampüs için toplam ve alışveriş yapan customer sayılarını set
+    campusAllCustomersMap.forEach((customerSet, campus) => {
       const report = campusMap.get(campus);
-      if (!report) return;
+      if (report) {
+        report.totalCustomers = customerSet.size;
+      }
+    });
 
-      report.totalCustomers++;
-
-      if (customerOrderSet.has(`${campus}:${customer.id}`)) {
-        report.customersWithOrders++;
+    campusSuccessCustomersMap.forEach((customerSet, campus) => {
+      const report = campusMap.get(campus);
+      if (report) {
+        report.customersWithOrders = customerSet.size;
       }
     });
 

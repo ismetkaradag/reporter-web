@@ -3,7 +3,9 @@ import type {
   LoginResponse,
   OrderListRequest,
   OrderListResponse,
-  OrderListApiResponse
+  OrderListApiResponse,
+  ReturnRequestListApiResponse,
+  ReturnListApiResponse
 } from '@/types';
 
 const BASE_URL = process.env.BASE_URL || 'https://yonder.okuldolabim.com/';
@@ -428,4 +430,214 @@ export async function fetchAllProducts(
   }
 
   return allProducts;
+}
+
+// ================================================
+// RETURN REQUEST API METHODS (İade Talepleri)
+// ================================================
+
+/**
+ * İade talepleri sayfası çek
+ */
+export async function fetchReturnRequestsPage(
+  pageIndex: number = 1,
+  pageSize: number = 100
+): Promise<ReturnRequestListApiResponse> {
+  const token = await loginToExternalApi();
+
+  const requestBody = {
+    StartDate: null,
+    EndDate: null,
+    ReturnRequestReasonId: -1,
+    ReturnRequestActionId: -1,
+    ReturnRequestStatusId: -1,
+    CustomNumber: null,
+    PageIndex: pageIndex,  // Büyük P!
+    PageSize: pageSize,    // Büyük P!
+  };
+
+  console.log('Return requests request body:', JSON.stringify(requestBody));
+
+  const response = await fetch(`${BASE_URL}adminapi/returnrequest/list`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'Cookie': `.Application.Customer=${COOKIE_VALUE}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    console.error('Return requests API error:', {
+      status: response.status,
+      statusText: response.statusText,
+      body: responseText
+    });
+    throw new Error(`Failed to fetch return requests: ${response.statusText}`);
+  }
+
+  const responseText = await response.text();
+
+  // Debug: API yanıtını göster
+  console.log('Return requests API response (first 500 chars):', responseText.substring(0, 500));
+
+  let result: ReturnRequestListApiResponse;
+  try {
+    result = JSON.parse(responseText);
+  } catch (error) {
+    console.error('Failed to parse return requests response:', responseText.substring(0, 1000));
+    throw new Error(`Failed to parse return requests response: ${error}`);
+  }
+
+  if (!result.success) {
+    // "Root element is missing" hatası genellikle hiç veri olmadığında gelir
+    // Bu durumda boş array döndür
+    if (result.errors && result.errors.some((err: string) => err.includes('Root element is missing'))) {
+      console.log('No return requests found (Root element is missing), returning empty array');
+      return {
+        success: true,
+        statusCode: 200,
+        errors: [],
+        data: [],
+        pageIndex: 1,
+        pageNumber: 1,
+        pageSize: 100,
+        totalItems: 0,
+        totalPages: 0,
+        firstItem: 0,
+        lastItem: 0,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      };
+    }
+    throw new Error(`Failed to fetch return requests: ${result.errors.join(', ')}`);
+  }
+
+  return result;
+}
+
+/**
+ * TÜM iade taleplerini pagination ile çek
+ */
+export async function fetchAllReturnRequests(
+  onProgress?: (current: number, total: number) => void
+): Promise<ReturnRequestListApiResponse['data']> {
+  let allReturnRequests: ReturnRequestListApiResponse['data'] = [];
+  let currentPage = 1;
+  let totalPages = 1;
+
+  while (currentPage <= totalPages) {
+    const response = await fetchReturnRequestsPage(currentPage, 100);
+
+    allReturnRequests = allReturnRequests.concat(response.data);
+    totalPages = response.totalPages;
+
+    if (onProgress) {
+      onProgress(currentPage, totalPages);
+    }
+
+    console.log(`Fetched return requests page ${currentPage}/${totalPages} - Total: ${allReturnRequests.length}`);
+
+    currentPage++;
+
+    // Rate limiting
+    if (currentPage <= totalPages) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  return allReturnRequests;
+}
+
+// ================================================
+// RETURN API METHODS (İadeler)
+// ================================================
+
+/**
+ * İadeler sayfası çek
+ */
+export async function fetchReturnsPage(
+  pageIndex: number = 1,
+  pageSize: number = 100
+): Promise<ReturnListApiResponse> {
+  const token = await loginToExternalApi();
+
+  const requestBody = {
+    PageIndex: pageIndex,
+    PageSize: pageSize,
+  };
+
+  const response = await fetch(`${BASE_URL}adminapi/return/list`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'Cookie': `.Application.Customer=${COOKIE_VALUE}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    console.error('Returns API error:', {
+      status: response.status,
+      statusText: response.statusText,
+      body: responseText
+    });
+    throw new Error(`Failed to fetch returns: ${response.statusText}`);
+  }
+
+  const responseText = await response.text();
+
+  // Debug: API yanıtını göster
+  console.log('Returns API response (first 500 chars):', responseText.substring(0, 500));
+
+  let result: ReturnListApiResponse;
+  try {
+    result = JSON.parse(responseText);
+  } catch (error) {
+    console.error('Failed to parse returns response:', responseText.substring(0, 1000));
+    throw new Error(`Failed to parse returns response: ${error}`);
+  }
+
+  if (!result.success) {
+    throw new Error(`Failed to fetch returns: ${result.errors.join(', ')}`);
+  }
+
+  return result;
+}
+
+/**
+ * TÜM iadeleri pagination ile çek
+ */
+export async function fetchAllReturns(
+  onProgress?: (current: number, total: number) => void
+): Promise<ReturnListApiResponse['data']> {
+  let allReturns: ReturnListApiResponse['data'] = [];
+  let currentPage = 1;
+  let totalPages = 1;
+
+  while (currentPage <= totalPages) {
+    const response = await fetchReturnsPage(currentPage, 100);
+
+    allReturns = allReturns.concat(response.data);
+    totalPages = response.totalPages;
+
+    if (onProgress) {
+      onProgress(currentPage, totalPages);
+    }
+
+    console.log(`Fetched returns page ${currentPage}/${totalPages} - Total: ${allReturns.length}`);
+
+    currentPage++;
+
+    // Rate limiting
+    if (currentPage <= totalPages) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  return allReturns;
 }

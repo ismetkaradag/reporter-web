@@ -33,6 +33,10 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
   const [reportGroups, setReportGroups] = useState<ReportGroup[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
+  const [isSyncingReturnRequests, setIsSyncingReturnRequests] = useState(false);
+  const [isSyncingReturns, setIsSyncingReturns] = useState(false);
+  const [returnRequestsSyncMessage, setReturnRequestsSyncMessage] = useState('');
+  const [returnsSyncMessage, setReturnsSyncMessage] = useState('');
 
   const campuses = useMemo(() => getAllCampuses(), []);
 
@@ -100,6 +104,82 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
           setSyncMessage('');
         }
       }, 10000);
+    }
+  };
+
+  // İade Talepleri Sync
+  const handleReturnRequestsSync = async () => {
+    if (isSyncingReturnRequests) return;
+
+    setIsSyncingReturnRequests(true);
+    setReturnRequestsSyncMessage('🔄 İade talepleri senkronize ediliyor...');
+
+    try {
+      const syncToken = process.env.NEXT_PUBLIC_SYNC_TOKEN;
+
+      const response = await fetch('/api/sync/return-requests', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${syncToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setReturnRequestsSyncMessage(
+          `✅ ${result.totalSynced || 0} iade talebi sync edildi`
+        );
+      } else {
+        setReturnRequestsSyncMessage(`❌ Hata: ${result.error || 'Bilinmeyen hata'}`);
+      }
+    } catch (error) {
+      console.error('Return requests sync error:', error);
+      setReturnRequestsSyncMessage('❌ Senkronizasyon başarısız oldu');
+    } finally {
+      setIsSyncingReturnRequests(false);
+      // 5 saniye sonra mesajı temizle
+      setTimeout(() => {
+        setReturnRequestsSyncMessage('');
+      }, 5000);
+    }
+  };
+
+  // İadeler Sync
+  const handleReturnsSync = async () => {
+    if (isSyncingReturns) return;
+
+    setIsSyncingReturns(true);
+    setReturnsSyncMessage('🔄 İadeler senkronize ediliyor...');
+
+    try {
+      const syncToken = process.env.NEXT_PUBLIC_SYNC_TOKEN;
+
+      const response = await fetch('/api/sync/returns', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${syncToken}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setReturnsSyncMessage(
+          `✅ ${result.totalSynced || 0} iade sync edildi`
+        );
+      } else {
+        setReturnsSyncMessage(`❌ Hata: ${result.error || 'Bilinmeyen hata'}`);
+      }
+    } catch (error) {
+      console.error('Returns sync error:', error);
+      setReturnsSyncMessage('❌ Senkronizasyon başarısız oldu');
+    } finally {
+      setIsSyncingReturns(false);
+      // 5 saniye sonra mesajı temizle
+      setTimeout(() => {
+        setReturnsSyncMessage('');
+      }, 5000);
     }
   };
 
@@ -184,27 +264,77 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
               <p className="text-gray-600 mt-1">Satış ve sipariş istatistikleri</p>
             </div>
 
-            {/* Development Mode Sync Button */}
+            {/* Development Mode Sync Buttons */}
             {isDevMode && (
-              <div className="flex flex-col items-end gap-2">
-                <button
-                  onClick={handleSync}
-                  disabled={isSyncing}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    isSyncing
-                      ? 'bg-gray-400 text-white cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                >
-                  {isSyncing ? '🔄 Senkronize Ediliyor...' : '🔄 Senkronizasyon Başlat'}
-                </button>
-                {syncMessage && (
-                  <div className={`text-sm whitespace-pre-line ${
-                    syncMessage.includes('✅') ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {syncMessage}
+              <div className="flex flex-col items-end gap-3">
+                {/* Ana Sync Butonu */}
+                <div className="flex flex-col items-end gap-2">
+                  <button
+                    onClick={handleSync}
+                    disabled={isSyncing}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      isSyncing
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {isSyncing ? '🔄 Senkronize Ediliyor...' : '🔄 Tüm Veriler Sync'}
+                  </button>
+                  {syncMessage && (
+                    <div className={`text-sm whitespace-pre-line ${
+                      syncMessage.includes('✅') ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {syncMessage}
+                    </div>
+                  )}
+                </div>
+
+                {/* İade Sistemi Sync Butonları */}
+                <div className="flex gap-2">
+                  {/* İade Talepleri */}
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      onClick={handleReturnRequestsSync}
+                      disabled={isSyncingReturnRequests}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        isSyncingReturnRequests
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : 'bg-purple-600 text-white hover:bg-purple-700'
+                      }`}
+                    >
+                      {isSyncingReturnRequests ? '🔄 Sync...' : '↩️ İade Talepleri'}
+                    </button>
+                    {returnRequestsSyncMessage && (
+                      <div className={`text-xs ${
+                        returnRequestsSyncMessage.includes('✅') ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {returnRequestsSyncMessage}
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  {/* İadeler */}
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      onClick={handleReturnsSync}
+                      disabled={isSyncingReturns}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        isSyncingReturns
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : 'bg-orange-600 text-white hover:bg-orange-700'
+                      }`}
+                    >
+                      {isSyncingReturns ? '🔄 Sync...' : '✅ İadeler'}
+                    </button>
+                    {returnsSyncMessage && (
+                      <div className={`text-xs ${
+                        returnsSyncMessage.includes('✅') ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {returnsSyncMessage}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

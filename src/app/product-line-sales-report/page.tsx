@@ -1,5 +1,5 @@
 import { getServiceRoleClient } from '@/lib/supabase';
-import type { Order } from '@/types';
+import type { Order, Product } from '@/types';
 import ProductLineSalesClient from './ProductLineSalesClient';
 import MainLayout from '@/components/MainLayout';
 
@@ -90,16 +90,37 @@ async function fetchReportGroups() {
   return groups || [];
 }
 
+async function fetchProducts(): Promise<Product[]> {
+  const supabase = getServiceRoleClient();
+  const { data, error } = await supabase
+    .from('products')
+    .select('id, name, sku, stock_quantity, combinations, price');
+
+  if (error) {
+    console.error('Error fetching products:', error);
+    return [];
+  }
+
+  console.log(`✅ Product Line Sales Report: Fetched ${data?.length || 0} products`);
+  return (data as Product[]) || [];
+}
+
 export default async function ProductLineSalesReportPage() {
-  const [orders, customers, reportGroups] = await Promise.all([
+  const [orders, customers, reportGroups, products] = await Promise.all([
     fetchOrders(),
     fetchCustomers(),
     fetchReportGroups(),
+    fetchProducts(),
   ]);
 
   return (
     <MainLayout>
-      <ProductLineSalesClient orders={orders} customers={customers} reportGroups={reportGroups} />
+      <ProductLineSalesClient
+        orders={orders}
+        customers={customers}
+        reportGroups={reportGroups}
+        products={products}
+      />
     </MainLayout>
   );
 }

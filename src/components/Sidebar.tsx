@@ -21,6 +21,11 @@ const menuItems: MenuItem[] = [
   { name: 'Satış Oranları Raporu', href: '/sales-rates-report', icon: '📈' },
   { name: 'İndirim Raporu', href: '/discount-report', icon: '💰' },
   { name: 'Rapor Gruplandırma', href: '/report-groups', icon: '📁' },
+  //{ name: 'İade Talepleri', href: '/iade-talepleri', icon: '↩️' },
+  //{ name: 'İadeler', href: '/iadeler', icon: '✅' },
+  //{ name: 'İade Özet', href: '/iade-ozet', icon: '📑' },
+  //{ name: 'Kampüs İade Talebi Raporu', href: '/kampus-iade-talebi-raporu', icon: '🏫📋' },
+  //{ name: 'Kampüs İade Raporu', href: '/kampus-iade-raporu', icon: '🏫↩️' },
 ];
 
 export default function Sidebar() {
