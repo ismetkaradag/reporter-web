@@ -35,6 +35,7 @@ interface ProductLineRow {
   orderSubTotalDiscountInclTax: number;
   paymentMethodAdditionalFeeInclTax: number;
   created_on: string;
+  cargo_fee: number;
 
   // Ürün bilgileri
   itemSku: string;
@@ -239,6 +240,7 @@ export default function ProductLineSalesClient({ orders, customers, reportGroups
           orderSubTotalDiscountInclTax: order.order_sub_total_discount_incl_tax || 0,
           paymentMethodAdditionalFeeInclTax: order.payment_method_additional_fee_incl_tax || 0,
           created_on: order.created_on || '',
+          cargo_fee: order.order_shipping_incl_tax || 0,
         };
 
         if (isSetProduct) {
@@ -391,10 +393,11 @@ export default function ProductLineSalesClient({ orders, customers, reportGroups
       'Ödeme Yöntemi': row.paymentMethod,
       'Ödeme Sistemi': row.paymentSystem,
       'Taksit': row.installment,
-      'Sipariş Toplamı': row.orderTotal,
+      'Sipariş Toplamı(Kargo ve Vade Farkı Dahil)': row.orderTotal,
       'Ürün İndirimleri Toplamı': row.totalItemDiscountAmount,
       'Sipariş İndirimi': row.orderSubTotalDiscountInclTax,
       'Ödeme Ek Ücreti': row.paymentMethodAdditionalFeeInclTax,
+      'Kargo Ücreti': row.cargo_fee,
       'Sipariş Tarihi' : new Date(row.created_on).toLocaleDateString('tr-TR'),
     }));
 
