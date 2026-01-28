@@ -1,19 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import type { Order, Product } from '@/types';
-import * as XLSX from 'xlsx';
-import { isSuccessfulOrder } from '@/utils/orderUtils';
-
-interface ProductLineSalesClientProps {
-  orders: Order[];
-  customers: any[];
-  reportGroups: any[];
-  products: Product[];
-}
+import { useEffect, useMemo, useState } from 'react';
 
 interface ProductLineRow {
-  // Üye bilgileri
   customerEmail: string;
   customerPhone: string;
   customerFirstName: string;
@@ -22,8 +11,6 @@ interface ProductLineRow {
   studentClassName: string;
   membershipName: string;
   campusName: string;
-
-  // Sipariş bilgileri
   customOrderNumber: string;
   orderStatus: string;
   paymentStatus: string;
@@ -36,8 +23,6 @@ interface ProductLineRow {
   paymentMethodAdditionalFeeInclTax: number;
   created_on: string;
   cargo_fee: number;
-
-  // Ürün bilgileri
   itemSku: string;
   itemProductName: string;
   itemAttributeInfo: string;
@@ -46,316 +31,100 @@ interface ProductLineRow {
   itemDiscountInclTax: number;
   itemTotalPriceInclTax: number;
   itemCampaignName: string;
-  itemType: 'Tekil Ürün' | 'Set İçi Ürün'; // Ürün tipi
-  reportGroups: string; // Ürünün bulunduğu gruplar (virgülle ayrılmış)
+  itemType: 'Tekil Ürün' | 'Set İçi Ürün';
+  reportGroups: string;
 }
 
-// Set ürünlerinin attributeInfo'sunu parse et
-function parseSetProducts(attributeInfo: string): Array<{ name: string; attribute: string; attributeValue: string }> {
-  // <br /> ile ayrılmış satırları al
-  const lines = attributeInfo
-    .split('<br />')
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  const products = [];
-
-  // Her 3 satır bir ürünü temsil eder: Ürün Adı, Özellik (Beden), Fiyat
-  for (let i = 0; i < lines.length; i += 3) {
-    if (i + 1 < lines.length) {
-      // i: Ürün Adı, i+1: Özellik (örn: "Beden: M")
-      const attributeLine = lines[i + 1];
-
-      // "Beden: M" -> "M" çıkar (: ve boşluktan sonraki kısım)
-      let attributeValue = '';
-      if (attributeLine.includes(':')) {
-        attributeValue = attributeLine.split(':')[1].trim();
-      }
-
-      products.push({
-        name: lines[i],
-        attribute: attributeLine,
-        attributeValue,
-      });
-    }
-  }
-
-  return products;
+interface ReportTotals {
+  totalQuantity: number;
+  totalAmount: number;
 }
 
-export default function ProductLineSalesClient({ orders, customers, reportGroups, products }: ProductLineSalesClientProps) {
+interface ProductLineReportResponse {
+  rows: ProductLineRow[];
+  page: number;
+  pageSize: number;
+  totalRows: number;
+  totalPages: number;
+  totals: ReportTotals;
+  campuses: string[];
+}
+
+export default function ProductLineSalesClient() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCampuses, setSelectedCampuses] = useState<string[]>([]);
+  const [campuses, setCampuses] = useState<string[]>([]);
+  const [rows, setRows] = useState<ProductLineRow[]>([]);
+  const [totalRows, setTotalRows] = useState(0);
+  const [totals, setTotals] = useState<ReportTotals>({ totalQuantity: 0, totalAmount: 0 });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(200);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Customer ID -> Customer mapping oluştur
-  const customerMap = useMemo(() => {
-    const map = new Map();
-    customers.forEach((customer) => {
-      map.set(customer.id, customer);
-    });
-    return map;
-  }, [customers]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  // SKU -> Report Groups mapping oluştur
-  const skuToGroupsMap = useMemo(() => {
-    const map = new Map<string, string[]>();
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, selectedCampuses, pageSize]);
 
-    reportGroups.forEach((group) => {
-      if (group.product_skus && Array.isArray(group.product_skus)) {
-        group.product_skus.forEach((sku: string) => {
-          if (!map.has(sku)) {
-            map.set(sku, []);
-          }
-          map.get(sku)!.push(group.name);
-        });
-      }
-    });
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setErrorMessage('');
 
-    return map;
-  }, [reportGroups]);
-
-  // SKU -> Product Info mapping oluştur (combinations'dan)
-  const skuToProductInfo = useMemo(() => {
-    const map = new Map<string, {
-      productName: string;
-      attributeInfo: string;
-      stockQuantity: number;
-      price: number;
-    }>();
-
-    products.forEach((product) => {
-      // Ana ürün SKU'sunu da ekle
-      if (product.sku && product.name) {
-        map.set(product.sku, {
-          productName: product.name,
-          attributeInfo: '-',
-          stockQuantity: product.stock_quantity || 0,
-          price: product.price || 0,
-        });
-      }
-
-      // Combinations'daki SKU'ları ekle
-      if (product.combinations && Array.isArray(product.combinations) && product.name) {
-        product.combinations.forEach((combination: any) => {
-          if (combination.sku) {
-            // Combination attributes'larını formatla
-            let attributeInfo = '-';
-            if (combination.attributes && Array.isArray(combination.attributes)) {
-              attributeInfo = combination.attributes
-                .map((attr: any) => `${attr.name}: ${attr.value}`)
-                .join(', ');
-            }
-
-            map.set(combination.sku, {
-              productName: product.name,
-              attributeInfo,
-              stockQuantity: combination.stockQuantity || 0,
-              price: combination.overriddenPrice || product.price || 0,
-            });
-          }
-        });
-      }
-    });
-
-    return map;
-  }, [products]);
-
-  // ProductName + AttributeValue -> Combination SKU mapping (set ürünleri için)
-  const productNameAndAttributeToSku = useMemo(() => {
-    const map = new Map<string, string>();
-
-    products.forEach((product) => {
-      if (!product.name || !product.combinations) return;
-
-      // Her combination için productName + attributeValue -> SKU mapping
-      if (Array.isArray(product.combinations)) {
-        product.combinations.forEach((combination: any) => {
-          if (!combination.sku || !combination.attributes) return;
-
-          // Her attribute value için mapping oluştur
-          combination.attributes.forEach((attr: any) => {
-            if (attr.value) {
-              const key = `${product.name.trim()}|||${attr.value.trim()}`;
-              map.set(key, combination.sku);
-            }
-          });
-        });
-      }
-    });
-
-    return map;
-  }, [products]);
-
-  // Kampüs listesini çıkar
-  const campuses = useMemo(() => {
-    const campusSet = new Set<string>();
-    customers.forEach((customer) => {
-      if (customer.campus_name) {
-        campusSet.add(customer.campus_name);
-      }
-    });
-    return Array.from(campusSet).sort();
-  }, [customers]);
-
-  // Başarılı siparişleri filtrele ve ürün satırlarına dönüştür
-  const productLineRows = useMemo(() => {
-    const rows: ProductLineRow[] = [];
-
-    const successfulOrders = orders.filter(isSuccessfulOrder);
-
-    successfulOrders.forEach((order) => {
-      if (!order.items || !Array.isArray(order.items)) return;
-
-      // Customer bilgilerini al
-      const customer = customerMap.get(order.customer_id) || {};
-
-      order.items.forEach((item: any) => {
-        const quantity = item.quantity || 0;
-        const attributeInfo = item.attributeInfo || item.attribute_info || '';
-
-        // Set ürünü mü kontrol et (attributeInfo'da <br /> var)
-        const isSetProduct = attributeInfo && attributeInfo.includes('<br />');
-
-        // Ortak sipariş ve üye bilgileri
-        const commonData = {
-          // Üye bilgileri (customer tablosundan öncelikli)
-          customerEmail: customer.email || order.customer_email || '',
-          customerPhone: customer.phone || '',
-          customerFirstName: customer.first_name || '',
-          customerLastName: customer.last_name || '',
-          customerIdentityNumber: customer.identity_number || order.identity_number || '',
-          studentClassName: customer.student_class_name || order.class || '',
-          membershipName: customer.membership_name || order.membership || '',
-          campusName: customer.campus_name || order.campus || '',
-
-          // Sipariş bilgileri
-          customOrderNumber: order.custom_order_number || '',
-          orderStatus: order.order_status || '',
-          paymentStatus: order.payment_status || '',
-          paymentMethod: order.payment_method || '',
-          paymentSystem: order.payment_system || '',
-          installment: typeof order.installment === 'number' ? order.installment : (parseInt(order.installment as string, 10) || 0),
-          orderTotal: order.order_total || 0,
-          totalItemDiscountAmount: order.total_item_discount_amount || 0,
-          orderSubTotalDiscountInclTax: order.order_sub_total_discount_incl_tax || 0,
-          paymentMethodAdditionalFeeInclTax: order.payment_method_additional_fee_incl_tax || 0,
-          created_on: order.created_on || '',
-          cargo_fee: order.order_shipping_incl_tax || 0,
-        };
-
-        if (isSetProduct) {
-          // Set ürünü - içindeki ürünleri parse et
-          const subProducts = parseSetProducts(attributeInfo);
-
-          // Set'in toplam indirimi
-          const setTotalDiscount = item.discountInclTax || item.discount_incl_tax || 0;
-
-          // Önce tüm alt ürünlerin gerçek fiyatlarını hesapla
-          const subProductsWithPrices = subProducts.map((subProduct) => {
-            const lookupKey = `${subProduct.name.trim()}|||${subProduct.attributeValue.trim()}`;
-            const sku = productNameAndAttributeToSku.get(lookupKey) || 'UNKNOWN';
-            const productInfo = skuToProductInfo.get(sku);
-            const realPrice = productInfo?.price || 0;
-
-            return {
-              subProduct,
-              sku,
-              productInfo,
-              realPrice,
-            };
-          });
-
-          // Toplam gerçek fiyat
-          const totalRealPrice = subProductsWithPrices.reduce((sum, p) => sum + p.realPrice, 0);
-
-          // Her alt ürün için satır oluştur
-          subProductsWithPrices.forEach((productData) => {
-            const { subProduct, sku, productInfo, realPrice } = productData;
-
-            // Bu ürüne düşen indirim oranı
-            const discountForThisProduct = totalRealPrice > 0
-              ? (realPrice / totalRealPrice) * setTotalDiscount
-              : 0;
-
-            const productName = productInfo?.productName || subProduct.name;
-            const productAttributeInfo = productInfo?.attributeInfo || subProduct.attribute;
-
-            // SKU için grup bilgilerini al
-            const groupNames = skuToGroupsMap.get(sku) || [];
-            const reportGroupsStr = groupNames.join(', ');
-
-            rows.push({
-              ...commonData,
-              // Ürün bilgileri
-              itemSku: sku,
-              itemProductName: productName,
-              itemAttributeInfo: productAttributeInfo,
-              itemQuantity: quantity,
-              itemUnitPriceInclTax: realPrice, // Gerçek birim fiyat (products tablosundan)
-              itemDiscountInclTax: discountForThisProduct, // Orantılı indirim
-              itemTotalPriceInclTax: item.totalPriceInclTax || item.total_price_incl_tax || 0,
-              itemCampaignName: item.campaignName || item.campaign_name || '',
-              itemType: 'Set İçi Ürün',
-              reportGroups: reportGroupsStr,
-            });
-          });
-        } else {
-          // Normal tekil ürün
-          const itemSku = item.sku || '';
-          const groupNames = skuToGroupsMap.get(itemSku) || [];
-          const reportGroupsStr = groupNames.join(', ');
-
-          rows.push({
-            ...commonData,
-            // Ürün bilgileri
-            itemSku,
-            itemProductName: item.productName || item.product_name || '',
-            itemAttributeInfo: attributeInfo,
-            itemQuantity: quantity,
-            itemUnitPriceInclTax: item.unitPriceInclTax || item.unit_price_incl_tax || 0,
-            itemDiscountInclTax: item.discountInclTax || item.discount_incl_tax || 0,
-            itemTotalPriceInclTax: item.totalPriceInclTax || item.total_price_incl_tax || 0,
-            itemCampaignName: item.campaignName || item.campaign_name || '',
-            itemType: 'Tekil Ürün',
-            reportGroups: reportGroupsStr,
-          });
+      try {
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('pageSize', String(pageSize));
+        if (debouncedSearch) {
+          params.set('search', debouncedSearch);
         }
-      });
-    });
+        if (selectedCampuses.length > 0) {
+          params.set('campuses', selectedCampuses.join(','));
+        }
 
-    return rows;
-  }, [orders, customerMap, skuToGroupsMap, skuToProductInfo, productNameAndAttributeToSku]);
+        const response = await fetch(`/api/product-line-sales-report?${params.toString()}`);
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.error || 'Rapor verisi alınamadı');
+        }
 
-  // Filtreleri uygula
-  const filteredRows = useMemo(() => {
-    let filtered = productLineRows;
+        const result = (await response.json()) as ProductLineReportResponse;
+        setRows(result.rows || []);
+        setTotalRows(result.totalRows || 0);
+        setTotals(result.totals || { totalQuantity: 0, totalAmount: 0 });
+        setCampuses(result.campuses || []);
+      } catch (error: any) {
+        setErrorMessage(error.message || 'Rapor verisi alınamadı');
+        setRows([]);
+        setTotalRows(0);
+        setTotals({ totalQuantity: 0, totalAmount: 0 });
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    // Kampüs filtresi
-    if (selectedCampuses.length > 0) {
-      filtered = filtered.filter((row) =>
-        row.campusName && selectedCampuses.includes(row.campusName)
-      );
+    fetchData();
+  }, [page, pageSize, debouncedSearch, selectedCampuses]);
+
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(totalRows / pageSize));
+  }, [totalRows, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
     }
+  }, [page, totalPages]);
 
-    // Arama filtresi
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (row) =>
-          row.itemProductName.toLowerCase().includes(query) ||
-          row.itemSku.toLowerCase().includes(query) ||
-          row.customerEmail.toLowerCase().includes(query) ||
-          row.customerFirstName.toLowerCase().includes(query) ||
-          row.customerLastName.toLowerCase().includes(query) ||
-          row.customOrderNumber.toLowerCase().includes(query) ||
-          row.reportGroups.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
-  }, [productLineRows, selectedCampuses, searchQuery]);
-
-  // Kampüs toggle
   const toggleCampus = (campus: string) => {
     setSelectedCampuses((prev) =>
       prev.includes(campus)
@@ -364,86 +133,44 @@ export default function ProductLineSalesClient({ orders, customers, reportGroups
     );
   };
 
-  // Excel export
-  const exportToExcel = () => {
-    const excelData = filteredRows.map((row) => ({
-      'Sipariş No': row.customOrderNumber,
-      'Sipariş Tipi': row.customOrderNumber.startsWith('RT') ? 'Değişim' : 'Satış',
-      'Üye Ad': row.customerFirstName,
-      'Üye Soyad': row.customerLastName,
-      'E-posta': row.customerEmail,
-      'Telefon': row.customerPhone,
-      'TC Kimlik': row.customerIdentityNumber,
-      'Sınıf': row.studentClassName,
-      'Üyelik': row.membershipName,
-      'Kampüs': row.campusName,
-      'Ürün SKU': row.itemSku,
-      'Ürün Adı': row.itemProductName,
-      'Özellik': row.itemAttributeInfo,
-      'Ürün Tipi': row.itemType,
-      'Gruplar': row.reportGroups,
-      'Adet': row.itemQuantity,
-      'Birim Fiyat': row.itemUnitPriceInclTax,
-      'Ürün İndirimi': row.itemDiscountInclTax,
-      'İndirimli Birim Fiyat': row.itemUnitPriceInclTax - row.itemDiscountInclTax,
-      'Toplam Fiyat': row.itemTotalPriceInclTax,
-      'Kampanya': row.itemCampaignName,
-      'Sipariş Durumu': row.orderStatus,
-      'Ödeme Durumu': row.paymentStatus,
-      'Ödeme Yöntemi': row.paymentMethod,
-      'Ödeme Sistemi': row.paymentSystem,
-      'Taksit': row.installment,
-      'Sipariş Toplamı(Kargo ve Vade Farkı Dahil)': row.orderTotal,
-      'Ürün İndirimleri Toplamı': row.totalItemDiscountAmount,
-      'Sipariş İndirimi': row.orderSubTotalDiscountInclTax,
-      'Ödeme Ek Ücreti': row.paymentMethodAdditionalFeeInclTax,
-      'Kargo Ücreti': row.cargo_fee,
-      'Sipariş Tarihi' : new Date(row.created_on).toLocaleDateString('tr-TR'),
-    }));
+  const exportToExcel = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
 
-    const ws = XLSX.utils.json_to_sheet(excelData);
+    try {
+      const params = new URLSearchParams();
+      if (debouncedSearch) {
+        params.set('search', debouncedSearch);
+      }
+      if (selectedCampuses.length > 0) {
+        params.set('campuses', selectedCampuses.join(','));
+      }
 
-    // Kolon genişlikleri
-    ws['!cols'] = [
-      { wch: 20 }, // Sipariş No
-      { wch: 12 }, // Sipariş Tipi
-      { wch: 15 }, // Üye Ad
-      { wch: 15 }, // Üye Soyad
-      { wch: 25 }, // E-posta
-      { wch: 15 }, // Telefon
-      { wch: 15 }, // TC Kimlik
-      { wch: 15 }, // Sınıf
-      { wch: 15 }, // Üyelik
-      { wch: 20 }, // Kampüs
-      { wch: 15 }, // Ürün SKU
-      { wch: 40 }, // Ürün Adı
-      { wch: 30 }, // Özellik
-      { wch: 15 }, // Ürün Tipi
-      { wch: 25 }, // Gruplar
-      { wch: 8 },  // Adet
-      { wch: 12 }, // Birim Fiyat
-      { wch: 12 }, // Ürün İndirimi
-      { wch: 18 }, // İndirimli Birim Fiyat
-      { wch: 12 }, // Toplam Fiyat
-      { wch: 20 }, // Kampanya
-      { wch: 15 }, // Sipariş Durumu
-      { wch: 15 }, // Ödeme Durumu
-      { wch: 15 }, // Ödeme Yöntemi
-      { wch: 15 }, // Ödeme Sistemi
-      { wch: 8 },  // Taksit
-      { wch: 12 }, // Sipariş Toplamı
-      { wch: 20 }, // Ürün İndirimleri Toplamı
-      { wch: 15 }, // Sipariş İndirimi
-      { wch: 15 }, // Ödeme Ek Ücreti
-      { wch: 15 }, // Sipariş Tarihi
-    ];
+      const response = await fetch(`/api/product-line-sales-report/export?${params.toString()}`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Excel indirilemedi');
+      }
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Ürünlü Satış Raporu');
-    XLSX.writeFile(wb, `urunlu-satis-raporu-${new Date().toISOString().split('T')[0]}.xlsx`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="(.+)"/);
+      const fileName = match?.[1] || `urunlu-satis-raporu-${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Excel indirilemedi');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
-  // Para formatı
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
@@ -460,6 +187,12 @@ export default function ProductLineSalesClient({ orders, customers, reportGroups
           Tüm başarılı siparişlerin ürün satır detayları
         </p>
       </div>
+
+      {errorMessage && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {errorMessage}
+        </div>
+      )}
 
       {/* Filtreler */}
       <div className="bg-white rounded-lg shadow p-4 mb-6 space-y-4">
@@ -513,32 +246,81 @@ export default function ProductLineSalesClient({ orders, customers, reportGroups
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">Toplam Satır</div>
           <div className="text-2xl font-bold text-gray-900 mt-1">
-            {filteredRows.length}
+            {totalRows}
           </div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-600">Toplam Adet</div>
           <div className="text-2xl font-bold text-blue-600 mt-1">
-            {filteredRows.reduce((sum, row) => sum + row.itemQuantity, 0)}
+            {totals.totalQuantity}
           </div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <div className="text-sm text-gray-600">Toplam Tutar<p className='text-xs'>(Ürüne yapılan indirimler düşülmüştür)<br/>(Siparişe yapılan indirimler düşülmemiştir)</p></div>
+          <div className="text-sm text-gray-600">
+            Toplam Tutar
+            <p className="text-xs">
+              (Ürüne yapılan indirimler düşülmüştür)
+              <br />
+              (Siparişe yapılan indirimler düşülmemiştir)
+            </p>
+          </div>
           <div className="text-2xl font-bold text-green-600 mt-1">
-            {formatCurrency(filteredRows.reduce((sum, row) => sum + row.itemUnitPriceInclTax, 0))}
+            {formatCurrency(totals.totalAmount)}
           </div>
         </div>
       </div>
 
       {/* Excel Export Button */}
-      <div className="mb-4 flex justify-end">
-        <button
-          onClick={exportToExcel}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-        >
-          <span>📥</span>
-          <span>Excel İndir</span>
-        </button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-gray-600">
+          Sayfa {page} / {totalPages} · Toplam {totalRows} satır
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={page <= 1 || isLoading}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              page <= 1 || isLoading
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Önceki
+          </button>
+          <button
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={page >= totalPages || isLoading}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              page >= totalPages || isLoading
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Sonraki
+          </button>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(parseInt(e.target.value, 10))}
+            className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+            disabled={isLoading}
+          >
+            <option value={100}>100 / sayfa</option>
+            <option value={200}>200 / sayfa</option>
+            <option value={500}>500 / sayfa</option>
+          </select>
+          <button
+            onClick={exportToExcel}
+            disabled={isExporting}
+            className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+              isExporting
+                ? 'bg-gray-400 text-white cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            <span>📥</span>
+            <span>{isExporting ? 'Hazırlanıyor...' : 'Excel İndir'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Tablo */}
@@ -562,17 +344,23 @@ export default function ProductLineSalesClient({ orders, customers, reportGroups
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredRows.length === 0 ? (
+              {isLoading ? (
                 <tr>
                   <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
-                    {searchQuery || selectedCampuses.length > 0
+                    Yükleniyor...
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
+                    {debouncedSearch || selectedCampuses.length > 0
                       ? 'Filtrelere uygun satır bulunamadı'
                       : 'Henüz satış verisi yok'}
                   </td>
                 </tr>
               ) : (
-                filteredRows.map((row, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
+                rows.map((row, index) => (
+                  <tr key={`${row.customOrderNumber}-${row.itemSku}-${index}`} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-blue-600 font-medium">
                       {row.customOrderNumber}
                     </td>
@@ -629,7 +417,7 @@ export default function ProductLineSalesClient({ orders, customers, reportGroups
 
       {/* Footer bilgi */}
       <div className="mt-4 text-sm text-gray-600 text-center">
-        Toplam {filteredRows.length} satır gösteriliyor
+        Bu sayfada {rows.length} satır gösteriliyor
       </div>
     </div>
   );
