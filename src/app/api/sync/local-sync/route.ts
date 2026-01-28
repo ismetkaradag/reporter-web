@@ -19,32 +19,6 @@ export async function GET(request: NextRequest) {
 
     console.log('🚀 LOCAL SYNC BAŞLADI');
     console.log('⏰ Başlangıç:', new Date().toISOString());
-// 3. Products Sync
-    console.log('\n🛍️ ÜRÜNLER SYNC EDİLİYOR...');
-    let productPage = 1;
-    let totalProducts = 0;
-    let hasMoreProducts = true;
-
-    while (hasMoreProducts) {
-      console.log(`   📄 Sayfa ${productPage} çekiliyor...`);
-      const productsData = await fetchProductsPage(productPage, 100);
-
-      if (productsData.data && productsData.data.length > 0) {
-        console.log(`   ✅ ${productsData.data.length} ürün alındı`);
-        await syncProductsToSupabase(productsData.data);
-        totalProducts += productsData.data.length;
-        console.log(`   💾 Toplam sync edilen: ${totalProducts}`);
-      }
-
-      hasMoreProducts = productsData.hasNextPage;
-      productPage++;
-
-      if (productPage % 10 === 0) {
-        console.log(`   📊 İlerleme: ${productPage} sayfa işlendi, ${totalProducts} ürün sync edildi`);
-      }
-    }
-    console.log(`✅ Ürünler tamamlandı: ${totalProducts} adet`);
-    // 1. Orders Sync
     console.log('\n📦 SİPARİŞLER SYNC EDİLİYOR...');
     let orderPage = 1;
     let totalOrders = 0;
@@ -71,6 +45,33 @@ export async function GET(request: NextRequest) {
     }
     console.log(`✅ Siparişler tamamlandı: ${totalOrders} adet`);
 
+// 3. Products Sync
+    console.log('\n🛍️ ÜRÜNLER SYNC EDİLİYOR...');
+    let productPage = 1;
+    let totalProducts = 0;
+    let hasMoreProducts = true;
+
+    while (hasMoreProducts) {
+      console.log(`   📄 Sayfa ${productPage} çekiliyor...`);
+      const productsData = await fetchProductsPage(productPage, 100);
+
+      if (productsData.data && productsData.data.length > 0) {
+        console.log(`   ✅ ${productsData.data.length} ürün alındı`);
+        await syncProductsToSupabase(productsData.data);
+        totalProducts += productsData.data.length;
+        console.log(`   💾 Toplam sync edilen: ${totalProducts}`);
+      }
+
+      hasMoreProducts = productsData.hasNextPage;
+      productPage++;
+
+      if (productPage % 10 === 0) {
+        console.log(`   📊 İlerleme: ${productPage} sayfa işlendi, ${totalProducts} ürün sync edildi`);
+      }
+    }
+    console.log(`✅ Ürünler tamamlandı: ${totalProducts} adet`);
+    // 1. Orders Sync
+    
     // 2. Customers Sync
     console.log('\n👥 MÜŞTERİLER SYNC EDİLİYOR...');
     let customerPage = 1;

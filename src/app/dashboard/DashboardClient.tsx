@@ -5,12 +5,14 @@ import type { Order, ReportGroup } from '@/types';
 import StatCard from '@/components/StatCard';
 import CampusStatsTable from '@/components/CampusStatsTable';
 import OrderHeatmap from '@/components/OrderHeatmap';
+import PlatformStatsTable, { type PlatformStats } from '@/components/PlatformStatsTable';
 import {
   calculateDashboardStats,
   calculateCampusStats,
   filterOrdersByDateRange,
   filterOrdersByCampus,
 } from '@/utils/dashboardStats';
+import { calculateNetRevenue, isCancelledOrder, isSuccessfulOrder } from '@/utils/orderUtils';
 import {
   getTodayRange,
   getYesterdayRange,
@@ -222,6 +224,39 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
     () => calculateReportGroupStats(filteredOrders, reportGroups),
     [filteredOrders, reportGroups]
   );
+
+  // Platform bazlı başarılı/iptal istatistikleri
+  const platformStats = useMemo(() => {
+    const map = new Map<string, PlatformStats>();
+
+    filteredOrders.forEach((order) => {
+      const platform = (order.order_platform || '').trim() || 'Bilinmeyen';
+
+      if (!map.has(platform)) {
+        map.set(platform, {
+          platform,
+          successfulCount: 0,
+          successfulRevenue: 0,
+          cancelledCount: 0,
+        });
+      }
+
+      const stat = map.get(platform)!;
+
+      if (isSuccessfulOrder(order)) {
+        stat.successfulCount += 1;
+        stat.successfulRevenue += calculateNetRevenue(order);
+      }
+
+      if (isCancelledOrder(order)) {
+        stat.cancelledCount += 1;
+      }
+    });
+
+    return Array.from(map.values()).sort(
+      (a, b) => b.successfulRevenue - a.successfulRevenue
+    );
+  }, [filteredOrders]);
 
   // Order_status bazlı dağılım (RT ayrımı ile)
   const statusDistribution = useMemo(() => {
@@ -501,6 +536,13 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
             })}
           </div>
         </div>
+
+        {/* Platform Bazlı İstatistikler */}
+        {platformStats.length > 1 && (
+          <div className="mb-6">
+            <PlatformStatsTable stats={platformStats} />
+          </div>
+        )}
 
         {/* Rapor Grup İstatistikleri */}
         {groupStats.length > 0 && (
