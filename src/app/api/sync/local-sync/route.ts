@@ -20,14 +20,14 @@ export async function GET(request: NextRequest) {
     console.log('🚀 LOCAL SYNC BAŞLADI');
     console.log('⏰ Başlangıç:', new Date().toISOString());
     console.log('\n📦 SİPARİŞLER SYNC EDİLİYOR...');
-    let orderPage = 1;
+    let orderPage = 0;
     let totalOrders = 0;
     let hasMoreOrders = true;
 
     while (hasMoreOrders) {
       console.log(`   📄 Sayfa ${orderPage} çekiliyor...`);
-      const ordersData = await fetchOrdersPage(orderPage, 100); // 50'lik paketler
-
+      const ordersData = await fetchOrdersPage(orderPage, 100); // 100'lik paketler
+      console.log('Fetched orders data for page', orderPage, ':', ordersData);
       if (ordersData.data && ordersData.data.length > 0) {
         console.log(`   ✅ ${ordersData.data.length} sipariş alındı`);
         await syncOrdersToSupabase(ordersData.data);

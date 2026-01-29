@@ -96,9 +96,10 @@ export async function GET(request: Request) {
     XLSX.utils.book_append_sheet(wb, ws, 'Ürünlü Satış Raporu');
 
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+    const body = new Uint8Array(buffer);
     const fileName = `urunlu-satis-raporu-${new Date().toISOString().split('T')[0]}.xlsx`;
 
-    return new NextResponse(buffer, {
+    return new NextResponse(body, {
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

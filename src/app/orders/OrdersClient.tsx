@@ -90,6 +90,40 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
     });
   }, [orders, searchTerm, selectedCampus, selectedStatus]);
 
+  // Kolon görünürlüğü (Sipariş No, Tipi, Durumu hariç)
+  const columnVisibility = useMemo(() => {
+    const shouldShow = (getValue: (order: Order) => string | number) => {
+      if (filteredOrders.length === 0) {
+        return false;
+      }
+      const values = new Set(
+        filteredOrders.map((order) => {
+          const value = getValue(order);
+          if (typeof value === 'string') {
+            return value.trim();
+          }
+          return value;
+        })
+      );
+      return values.size > 1;
+    };
+
+    return {
+      paymentStatus: shouldShow((order) => order.payment_status || ''),
+      trackingNumber: shouldShow((order) => order.tracking_number || ''),
+      paymentMethod: shouldShow((order) => order.payment_method || ''),
+      platform: shouldShow((order) => order.order_platform || ''),
+      campus: shouldShow((order) => order.campus || ''),
+      className: shouldShow((order) => order.class || ''),
+      customerInfo: shouldShow((order) => order.customer_info || ''),
+      createdOn: shouldShow((order) => formatDateTime(order.created_on)),
+      total: shouldShow((order) => {
+        const value = calculateNetRevenue(order);
+        return Math.round(value * 100) / 100;
+      }),
+    };
+  }, [filteredOrders]);
+
   // Sayfalama
   const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -230,30 +264,51 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Sipariş Durumu
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ödeme Durumu
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Kargo Takip No
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ödeme Tipi
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Kampüs
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Sınıf
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Kullanıcı
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tarih
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Toplam
-                  </th>
+                  {columnVisibility.paymentStatus && (
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ödeme Durumu
+                    </th>
+                  )}
+                  {columnVisibility.trackingNumber && (
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Kargo Takip No
+                    </th>
+                  )}
+                  {columnVisibility.paymentMethod && (
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ödeme Tipi
+                    </th>
+                  )}
+                  {columnVisibility.platform && (
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Platform
+                    </th>
+                  )}
+                  {columnVisibility.campus && (
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Kampüs
+                    </th>
+                  )}
+                  {columnVisibility.className && (
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Sınıf
+                    </th>
+                  )}
+                  {columnVisibility.customerInfo && (
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Kullanıcı
+                    </th>
+                  )}
+                  {columnVisibility.createdOn && (
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tarih
+                    </th>
+                  )}
+                  {columnVisibility.total && (
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Toplam
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -279,30 +334,51 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         {getStatusBadge(order.order_status)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                        {order.payment_status}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                        {order.tracking_number || '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                        {order.payment_method || '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                        {order.campus || '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                        {order.class || '-'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        <div className="max-w-xs truncate">{order.customer_info}</div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                        {formatDateTime(order.created_on)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">
-                        {formatCurrency(calculateNetRevenue(order))}
-                      </td>
+                      {columnVisibility.paymentStatus && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {order.payment_status}
+                        </td>
+                      )}
+                      {columnVisibility.trackingNumber && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {order.tracking_number || '-'}
+                        </td>
+                      )}
+                      {columnVisibility.paymentMethod && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {order.payment_method || '-'}
+                        </td>
+                      )}
+                      {columnVisibility.platform && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {order.order_platform || '-'}
+                        </td>
+                      )}
+                      {columnVisibility.campus && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {order.campus || '-'}
+                        </td>
+                      )}
+                      {columnVisibility.className && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {order.class || '-'}
+                        </td>
+                      )}
+                      {columnVisibility.customerInfo && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          <div className="max-w-xs truncate">{order.customer_info}</div>
+                        </td>
+                      )}
+                      {columnVisibility.createdOn && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {formatDateTime(order.created_on)}
+                        </td>
+                      )}
+                      {columnVisibility.total && (
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">
+                          {formatCurrency(calculateNetRevenue(order))}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

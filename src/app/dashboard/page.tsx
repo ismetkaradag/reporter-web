@@ -27,6 +27,7 @@ async function fetchOrders(): Promise<Order[]> {
         customer_info,
         order_status,
         payment_status,
+        order_platform,
         created_on,
         order_total,
         items,
