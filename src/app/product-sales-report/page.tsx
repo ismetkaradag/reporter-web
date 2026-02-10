@@ -37,7 +37,7 @@ async function fetchProducts(): Promise<Product[]> {
   const supabase = getServiceRoleClient();
   const { data, error } = await supabase
     .from('products')
-    .select('id, name, sku, stock_quantity, combinations, price');
+    .select('id, name, sku, stock_quantity, combinations, price, pictures');
 
 
   if (error) {

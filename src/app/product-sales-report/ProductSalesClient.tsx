@@ -20,6 +20,24 @@ interface ProductSale {
   totalSales: number;      // Toplam satış adedi
   stockQuantity: number;   // Stok miktarı
   price?: number;          // Birim fiyat (opsiyonel)
+  imageUrl?: string;
+}
+
+interface ProductPicture {
+  pictureUrl?: string;
+  displayOrder?: number;
+}
+
+function getPrimaryImageUrl(pictures: unknown): string {
+  if (!Array.isArray(pictures)) {
+    return '';
+  }
+
+  const validPictures = (pictures as ProductPicture[])
+    .filter((picture) => picture && typeof picture.pictureUrl === 'string' && picture.pictureUrl.trim() !== '')
+    .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+
+  return validPictures[0]?.pictureUrl || '';
 }
 
 // Set ürünlerinin attributeInfo'sunu parse et
@@ -65,6 +83,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
   const [sortBy, setSortBy] = useState<SortBy>('totalSales');
   const [reportGroups, setReportGroups] = useState<ReportGroup[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const showCampusFilter = campuses.length > 1;
 
   // Rapor gruplarını yükle
   useEffect(() => {
@@ -95,9 +114,11 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
       attributeInfo: string;
       stockQuantity: number;
       price: number;
+      imageUrl: string;
     }>();
 
     products.forEach((product) => {
+      const imageUrl = getPrimaryImageUrl(product.pictures);
       // Ana ürün SKU'sunu da ekle
       if (product.sku && product.name) {
         map.set(product.sku, {
@@ -105,6 +126,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
           attributeInfo: '-',
           stockQuantity: product.stock_quantity || 0,
           price: product.price || 0,
+          imageUrl,
         });
       }
 
@@ -125,6 +147,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
               attributeInfo,
               stockQuantity: combination.stockQuantity || 0,
               price: combination.overriddenPrice || product.price || 0,
+              imageUrl,
             });
           }
         });
@@ -199,6 +222,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
             const attributeInfo = productInfo?.attributeInfo || subProduct.attribute;
             const stockQuantity = productInfo?.stockQuantity || 0;
             const price = productInfo?.price || 0;
+            const imageUrl = productInfo?.imageUrl || '';
 
             const key = `${sku}|||${productName}|||${attributeInfo}`;
 
@@ -216,6 +240,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
                 totalSales: quantity,
                 stockQuantity,
                 price,
+                imageUrl,
               });
             }
           });
@@ -231,6 +256,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
           const attributeInfo = productInfo?.attributeInfo || item.attributeInfo || '-';
           const stockQuantity = productInfo?.stockQuantity || 0;
           const price = productInfo?.price || 0;
+          const imageUrl = productInfo?.imageUrl || '';
 
           const key = `${sku}|||${productName}|||${attributeInfo}`;
 
@@ -248,6 +274,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
               totalSales: quantity,
               stockQuantity,
               price,
+              imageUrl,
             });
           }
         }
@@ -275,6 +302,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
         // ProductName'den SKU bul
         let mainSku = sale.sku;
         let price = sale.price || 0;
+        let imageUrl = sale.imageUrl || '';
 
         // Products listesinden bu ürünün ana SKU'sunu bul (case-insensitive)
         const matchingProduct = products.find(
@@ -283,6 +311,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
         if (matchingProduct && matchingProduct.sku) {
           mainSku = matchingProduct.sku;
           price = matchingProduct.price || price;
+          imageUrl = getPrimaryImageUrl(matchingProduct.pictures) || imageUrl;
         }
 
         productMap.set(productName, {
@@ -294,6 +323,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
           totalSales: sale.totalSales,
           stockQuantity: sale.stockQuantity,
           price,
+          imageUrl,
         });
       }
     });
@@ -561,34 +591,36 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
       {/* Filtreler */}
       <div className="bg-white rounded-lg shadow p-4 mb-6 space-y-4">
         {/* Kampüs Filtresi */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Kampüs Filtresi ({selectedCampuses.length} seçili)
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {campuses.map((campus) => (
+        {showCampusFilter && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Kampüs Filtresi ({selectedCampuses.length} seçili)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {campuses.map((campus) => (
+                <button
+                  key={campus}
+                  onClick={() => toggleCampus(campus)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    selectedCampuses.includes(campus)
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {campus}
+                </button>
+              ))}
+            </div>
+            {selectedCampuses.length > 0 && (
               <button
-                key={campus}
-                onClick={() => toggleCampus(campus)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCampuses.includes(campus)
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                onClick={() => setSelectedCampuses([])}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-700"
               >
-                {campus}
+                Tümünü Temizle
               </button>
-            ))}
+            )}
           </div>
-          {selectedCampuses.length > 0 && (
-            <button
-              onClick={() => setSelectedCampuses([])}
-              className="mt-2 text-sm text-blue-600 hover:text-blue-700"
-            >
-              Tümünü Temizle
-            </button>
-          )}
-        </div>
+        )}
 
         {/* Ürün Arama */}
         <div>
@@ -703,6 +735,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Görsel</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ürün Adı</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Özellik</th>
@@ -715,13 +748,25 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
                           <tbody className="bg-white divide-y divide-gray-200">
                             {groupData.products.length === 0 ? (
                               <tr>
-                                <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                                <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
                                   Bu grupta henüz satış verisi yok
                                 </td>
                               </tr>
                             ) : (
                               groupData.products.map((product, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50">
+                                  <td className="px-6 py-3 text-sm">
+                                    {product.imageUrl ? (
+                                      <img
+                                        src={product.imageUrl}
+                                        alt={product.productName}
+                                        className="h-8 w-8 rounded object-cover"
+                                        loading="lazy"
+                                      />
+                                    ) : (
+                                      <div className="h-8 w-8 rounded bg-gray-100" />
+                                    )}
+                                  </td>
                                   <td className="px-6 py-3 text-sm text-gray-600 font-mono">{product.sku}</td>
                                   <td className="px-6 py-3 text-sm text-gray-900">{product.productName}</td>
                                   <td className="px-6 py-3 text-sm text-gray-600">{product.attributeInfo}</td>
@@ -748,6 +793,9 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
             <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Görsel
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   SKU
                 </th>
@@ -779,7 +827,7 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={viewMode === 'combination' ? 7 : 6} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={viewMode === 'combination' ? 9 : 8} className="px-6 py-8 text-center text-gray-500">
                     {searchQuery || selectedCampuses.length > 0
                       ? 'Filtrelere uygun ürün bulunamadı'
                       : 'Henüz satış verisi yok'}
@@ -788,6 +836,18 @@ export default function ProductSalesClient({ orders, products, campuses }: Produ
               ) : (
                 filteredProducts.map((product, index) => (
                   <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm">
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.productName}
+                          className="h-8 w-8 rounded object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded bg-gray-100" />
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-600 font-mono">
                       {product.sku}
                     </td>

@@ -51,6 +51,8 @@ export interface ProductLineRow {
   itemTotalPriceInclTax: number;
   itemCampaignName: string;
   itemType: 'Tekil Ürün' | 'Set İçi Ürün';
+  itemTaxAmount: number;
+  erpStatus: string;
   reportGroups: string;
 }
 
@@ -92,7 +94,7 @@ async function fetchOrders(): Promise<Order[]> {
     const { data, error } = await supabase
       .from('orders')
       .select(
-        'custom_order_number,order_status,payment_status,payment_method,payment_system,installment,order_total,total_item_discount_amount,order_sub_total_discount_incl_tax,payment_method_additional_fee_incl_tax,created_on,order_shipping_incl_tax,customer_id,customer_email,identity_number,class,membership,campus,items'
+        'custom_order_number,order_status,payment_status,payment_method,payment_system,installment,order_total,total_item_discount_amount,order_sub_total_discount_incl_tax,payment_method_additional_fee_incl_tax,created_on,order_shipping_incl_tax,customer_id,customer_email,identity_number,class,membership,campus,items,erp_status'
       )
       .order('created_on', { ascending: false })
       .range(from, from + pageSize - 1);
@@ -307,11 +309,16 @@ export function buildProductLineRows(
         paymentMethodAdditionalFeeInclTax: order.payment_method_additional_fee_incl_tax || 0,
         created_on: order.created_on || '',
         cargo_fee: order.order_shipping_incl_tax || 0,
+        erpStatus: order.erp_status || '',
       };
 
       if (isSetProduct) {
         const subProducts = parseSetProducts(attributeInfo);
         const setTotalDiscount = item.discountInclTax || item.discount_incl_tax || 0;
+
+        const itemUnitInclTax = item.unitPriceInclTax || item.unit_price_incl_tax || 0;
+        const itemUnitExclTax = item.unitPriceExclTax || item.unit_price_excl_tax || 0;
+        const setTaxRate = itemUnitExclTax > 0 ? (itemUnitInclTax / itemUnitExclTax - 1) : 0;
 
         const subProductsWithPrices = subProducts.map((subProduct) => {
           const lookupKey = `${subProduct.name.trim()}|||${subProduct.attributeValue.trim()}`;
@@ -342,6 +349,10 @@ export function buildProductLineRows(
           const groupNames = skuToGroupsMap.get(sku) || [];
           const reportGroupsStr = groupNames.join(', ');
 
+          const subProductTaxPerUnit = setTaxRate > 0
+            ? realPrice - (realPrice / (1 + setTaxRate))
+            : 0;
+
           rows.push({
             ...commonData,
             itemSku: sku,
@@ -353,6 +364,7 @@ export function buildProductLineRows(
             itemTotalPriceInclTax: item.totalPriceInclTax || item.total_price_incl_tax || 0,
             itemCampaignName: item.campaignName || item.campaign_name || '',
             itemType: 'Set İçi Ürün',
+            itemTaxAmount: subProductTaxPerUnit * quantity,
             reportGroups: reportGroupsStr,
           });
         });
@@ -361,17 +373,22 @@ export function buildProductLineRows(
         const groupNames = skuToGroupsMap.get(itemSku) || [];
         const reportGroupsStr = groupNames.join(', ');
 
+        const unitPriceInclTax = item.unitPriceInclTax || item.unit_price_incl_tax || 0;
+        const unitPriceExclTax = item.unitPriceExclTax || item.unit_price_excl_tax || 0;
+        const taxPerUnit = unitPriceInclTax - unitPriceExclTax;
+
         rows.push({
           ...commonData,
           itemSku,
           itemProductName: item.productName || item.product_name || '',
           itemAttributeInfo: attributeInfo,
           itemQuantity: quantity,
-          itemUnitPriceInclTax: item.unitPriceInclTax || item.unit_price_incl_tax || 0,
+          itemUnitPriceInclTax: unitPriceInclTax,
           itemDiscountInclTax: item.discountInclTax || item.discount_incl_tax || 0,
           itemTotalPriceInclTax: item.totalPriceInclTax || item.total_price_incl_tax || 0,
           itemCampaignName: item.campaignName || item.campaign_name || '',
           itemType: 'Tekil Ürün',
+          itemTaxAmount: taxPerUnit * quantity,
           reportGroups: reportGroupsStr,
         });
       }

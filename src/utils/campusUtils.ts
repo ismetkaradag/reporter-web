@@ -9,6 +9,13 @@ export function getAllCampuses(): string[] {
 }
 
 /**
+ * Birden fazla kampüs var mı?
+ */
+export function hasMultipleCampuses(): boolean {
+  return getAllCampuses().length > 1;
+}
+
+/**
  * Kampüs listesinde var mı kontrol et
  */
 export function isValidCampus(campus: string): boolean {

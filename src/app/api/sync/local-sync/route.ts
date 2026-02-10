@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     while (hasMoreOrders) {
       console.log(`   📄 Sayfa ${orderPage} çekiliyor...`);
       const ordersData = await fetchOrdersPage(orderPage, 100); // 100'lik paketler
-      console.log('Fetched orders data for page', orderPage, ':', ordersData);
+
       if (ordersData.data && ordersData.data.length > 0) {
         console.log(`   ✅ ${ordersData.data.length} sipariş alındı`);
         await syncOrdersToSupabase(ordersData.data);

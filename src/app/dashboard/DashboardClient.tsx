@@ -6,6 +6,7 @@ import StatCard from '@/components/StatCard';
 import CampusStatsTable from '@/components/CampusStatsTable';
 import OrderHeatmap from '@/components/OrderHeatmap';
 import PlatformStatsTable, { type PlatformStats } from '@/components/PlatformStatsTable';
+import PlatformRevenue14DaysChart from '@/components/PlatformRevenue14DaysChart';
 import {
   calculateDashboardStats,
   calculateCampusStats,
@@ -20,7 +21,7 @@ import {
   getThisMonthRange,
   getAllTimeRange,
 } from '@/utils/dateUtils';
-import { getAllCampuses } from '@/utils/campusUtils';
+import { getAllCampuses, hasMultipleCampuses } from '@/utils/campusUtils';
 import { calculateReportGroupStats } from '@/utils/reportGroupStats';
 
 interface DashboardClientProps {
@@ -41,6 +42,8 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
   const [returnsSyncMessage, setReturnsSyncMessage] = useState('');
 
   const campuses = useMemo(() => getAllCampuses(), []);
+  const showCampusFilter = useMemo(() => hasMultipleCampuses(), []);
+  const showSingleCampusInsights = useMemo(() => getAllCampuses().length === 1, []);
 
   // Rapor gruplarını yükle
   useEffect(() => {
@@ -224,6 +227,13 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
     () => calculateReportGroupStats(filteredOrders, reportGroups),
     [filteredOrders, reportGroups]
   );
+
+  const shouldShowCampusStats = useMemo(() => {
+    if (filteredOrders.length === 0) {
+      return false;
+    }
+    return filteredOrders.some((order) => (order.campus || '').trim());
+  }, [filteredOrders]);
 
   // Platform bazlı başarılı/iptal istatistikleri
   const platformStats = useMemo(() => {
@@ -409,23 +419,25 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
             </div>
 
             {/* Kampüs Filtresi */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Kampüs
-              </label>
-              <select
-                value={selectedCampus}
-                onChange={(e) => setSelectedCampus(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">Tüm Kampüsler</option>
-                {campuses.map((campus) => (
-                  <option key={campus} value={campus}>
-                    {campus}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {showCampusFilter && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Kampüs
+                </label>
+                <select
+                  value={selectedCampus}
+                  onChange={(e) => setSelectedCampus(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">Tüm Kampüsler</option>
+                  {campuses.map((campus) => (
+                    <option key={campus} value={campus}>
+                      {campus}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -537,6 +549,13 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
           </div>
         </div>
 
+        {/* Son 14 Gün Platform Bazlı Ciro */}
+        {showSingleCampusInsights && (
+          <div className="mb-6">
+            <PlatformRevenue14DaysChart orders={orders} />
+          </div>
+        )}
+
         {/* Platform Bazlı İstatistikler */}
         {platformStats.length > 1 && (
           <div className="mb-6">
@@ -592,9 +611,11 @@ export default function DashboardClient({ orders }: DashboardClientProps) {
         )}
 
         {/* Kampüs İstatistikleri */}
-        <div className="mb-6">
-          <CampusStatsTable stats={campusStats} />
-        </div>
+        {shouldShowCampusStats && (
+          <div className="mb-6">
+            <CampusStatsTable stats={campusStats} />
+          </div>
+        )}
         
         {/* Günlük Ciro Grafiği - Tüm zamanlar verisi */}
         {/* <div className="mb-6">

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface MenuItem {
@@ -17,6 +17,7 @@ const menuItems: MenuItem[] = [
   { name: 'Kampüs Satış Raporu', href: '/campus-sales-report', icon: '🏫' },
   { name: 'Kampüs Durum Raporu', href: '/campus-status-report', icon: '📋' },
   { name: 'Ürün Stok-Satış Raporu', href: '/product-sales-report', icon: '🛍️' },
+  { name: 'Ürün-Platform Satış Raporu', href: '/product-platform-sales-report', icon: '🧭' },
   { name: 'Ürünlü Satış Raporu', href: '/product-line-sales-report', icon: '📝' },
   { name: 'Satış Oranları Raporu', href: '/sales-rates-report', icon: '📈' },
   { name: 'İndirim Raporu', href: '/discount-report', icon: '💰' },
@@ -28,10 +29,34 @@ const menuItems: MenuItem[] = [
   //{ name: 'Kampüs İade Raporu', href: '/kampus-iade-raporu', icon: '🏫↩️' },
 ];
 
+const campusMenuHrefs = new Set(['/campus-sales-report', '/campus-status-report']);
+const singleCampusOnlyHrefs = new Set(['/product-platform-sales-report']);
+
 export default function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const { signOut } = useAuth();
+  const campusCount = useMemo(() => {
+    const raw = process.env.NEXT_PUBLIC_KAMPUSLER || '';
+    const campuses = raw
+      .split(',')
+      .map((campus) => campus.trim())
+      .filter(Boolean);
+    return campuses.length;
+  }, []);
+  const hasMultipleCampuses = campusCount > 1;
+  const hasSingleCampus = campusCount === 1;
+  const visibleMenuItems = useMemo(() => {
+    if (hasMultipleCampuses) {
+      return menuItems.filter((item) => !singleCampusOnlyHrefs.has(item.href));
+    }
+    if (hasSingleCampus) {
+      return menuItems.filter((item) => !campusMenuHrefs.has(item.href));
+    }
+    return menuItems.filter(
+      (item) => !campusMenuHrefs.has(item.href) && !singleCampusOnlyHrefs.has(item.href)
+    );
+  }, [hasMultipleCampuses, hasSingleCampus]);
 
   return (
     <>
@@ -70,7 +95,7 @@ export default function Sidebar() {
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto p-4">
             <div className="space-y-1">
-              {menuItems.map((item) => {
+              {visibleMenuItems.map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <Link

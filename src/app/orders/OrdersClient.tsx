@@ -5,7 +5,7 @@ import type { Order } from '@/types';
 import { formatCurrency, formatNumber } from '@/utils/formatUtils';
 import { formatDateTime } from '@/utils/dateUtils';
 import { calculateNetRevenue } from '@/utils/orderUtils';
-import { getAllCampuses } from '@/utils/campusUtils';
+import { getAllCampuses, hasMultipleCampuses } from '@/utils/campusUtils';
 import * as XLSX from 'xlsx';
 
 interface OrdersClientProps {
@@ -21,6 +21,7 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
   const [selectedStatus, setSelectedStatus] = useState('all');
 
   const campuses = useMemo(() => getAllCampuses(), []);
+  const showCampusFilter = useMemo(() => hasMultipleCampuses(), []);
 
   // Excel export fonksiyonu
   const exportToExcel = () => {
@@ -203,26 +204,28 @@ export default function OrdersClient({ orders }: OrdersClientProps) {
             </div>
 
             {/* Kampüs */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Kampüs
-              </label>
-              <select
-                value={selectedCampus}
-                onChange={(e) => {
-                  setSelectedCampus(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="all">Tüm Kampüsler</option>
-                {campuses.map((campus) => (
-                  <option key={campus} value={campus}>
-                    {campus}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {showCampusFilter && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Kampüs
+                </label>
+                <select
+                  value={selectedCampus}
+                  onChange={(e) => {
+                    setSelectedCampus(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">Tüm Kampüsler</option>
+                  {campuses.map((campus) => (
+                    <option key={campus} value={campus}>
+                      {campus}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Durum */}
             <div>

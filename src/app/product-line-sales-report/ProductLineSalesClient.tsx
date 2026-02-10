@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { hasMultipleCampuses } from '@/utils/campusUtils';
 
 interface ProductLineRow {
   customerEmail: string;
@@ -32,6 +33,8 @@ interface ProductLineRow {
   itemTotalPriceInclTax: number;
   itemCampaignName: string;
   itemType: 'Tekil Ürün' | 'Set İçi Ürün';
+  itemTaxAmount: number;
+  erpStatus: string;
   reportGroups: string;
 }
 
@@ -55,6 +58,9 @@ export default function ProductLineSalesClient() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCampuses, setSelectedCampuses] = useState<string[]>([]);
   const [campuses, setCampuses] = useState<string[]>([]);
+  const showCampusFilter = useMemo(() => hasMultipleCampuses(), []);
+  const showCampusColumn = campuses.length > 1;
+  const tableColumnCount = showCampusColumn ? 14 : 13;
   const [rows, setRows] = useState<ProductLineRow[]>([]);
   const [totalRows, setTotalRows] = useState(0);
   const [totals, setTotals] = useState<ReportTotals>({ totalQuantity: 0, totalAmount: 0 });
@@ -63,6 +69,7 @@ export default function ProductLineSalesClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const exportInFlightRef = useRef(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -134,7 +141,8 @@ export default function ProductLineSalesClient() {
   };
 
   const exportToExcel = async () => {
-    if (isExporting) return;
+    if (exportInFlightRef.current) return;
+    exportInFlightRef.current = true;
     setIsExporting(true);
 
     try {
@@ -168,6 +176,7 @@ export default function ProductLineSalesClient() {
       setErrorMessage(error.message || 'Excel indirilemedi');
     } finally {
       setIsExporting(false);
+      exportInFlightRef.current = false;
     }
   };
 
@@ -197,34 +206,36 @@ export default function ProductLineSalesClient() {
       {/* Filtreler */}
       <div className="bg-white rounded-lg shadow p-4 mb-6 space-y-4">
         {/* Kampüs Filtresi */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Kampüs Filtresi ({selectedCampuses.length} seçili)
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {campuses.map((campus) => (
+        {showCampusFilter && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Kampüs Filtresi ({selectedCampuses.length} seçili)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {campuses.map((campus) => (
+                <button
+                  key={campus}
+                  onClick={() => toggleCampus(campus)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    selectedCampuses.includes(campus)
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {campus}
+                </button>
+              ))}
+            </div>
+            {selectedCampuses.length > 0 && (
               <button
-                key={campus}
-                onClick={() => toggleCampus(campus)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  selectedCampuses.includes(campus)
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                onClick={() => setSelectedCampuses([])}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-700"
               >
-                {campus}
+                Tümünü Temizle
               </button>
-            ))}
+            )}
           </div>
-          {selectedCampuses.length > 0 && (
-            <button
-              onClick={() => setSelectedCampuses([])}
-              className="mt-2 text-sm text-blue-600 hover:text-blue-700"
-            >
-              Tümünü Temizle
-            </button>
-          )}
-        </div>
+        )}
 
         {/* Arama */}
         <div>
@@ -331,7 +342,9 @@ export default function ProductLineSalesClient() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sipariş No</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Üye</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kampüs</th>
+                {showCampusColumn && (
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kampüs</th>
+                )}
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ürün</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Özellik</th>
@@ -339,20 +352,22 @@ export default function ProductLineSalesClient() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gruplar</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Adet</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Birim Fiyat</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Vergi Tutarı</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Toplam</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ödeme</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">E-Fatura</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={tableColumnCount} className="px-6 py-8 text-center text-gray-500">
                     Yükleniyor...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={tableColumnCount} className="px-6 py-8 text-center text-gray-500">
                     {debouncedSearch || selectedCampuses.length > 0
                       ? 'Filtrelere uygun satır bulunamadı'
                       : 'Henüz satış verisi yok'}
@@ -370,9 +385,11 @@ export default function ProductLineSalesClient() {
                       </div>
                       <div className="text-gray-500 text-xs">{row.customerIdentityNumber}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {row.campusName}
-                    </td>
+                    {showCampusColumn && (
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {row.campusName}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-sm text-gray-600 font-mono">
                       {row.itemSku}
                     </td>
@@ -400,12 +417,18 @@ export default function ProductLineSalesClient() {
                     <td className="px-4 py-3 text-sm text-gray-900 text-right">
                       {formatCurrency(row.itemUnitPriceInclTax)}
                     </td>
+                    <td className="px-4 py-3 text-sm text-orange-600 text-right">
+                      {formatCurrency(row.itemTaxAmount)}
+                    </td>
                     <td className="px-4 py-3 text-sm text-green-600 text-right font-bold">
                       {formatCurrency(row.orderTotal)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
                       <div>{row.paymentMethod}</div>
                       <div className="text-xs text-gray-500">{row.paymentStatus}</div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {row.erpStatus || '-'}
                     </td>
                   </tr>
                 ))
